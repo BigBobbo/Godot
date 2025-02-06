@@ -35,13 +35,13 @@ func create_ork_army() -> Array:
 	army.append(warboss)
 	
 	# Create two squads of Ork Boyz
-	for i in range(2):
+	for i in range(1):
 		var boy_squad = []
 		var boy_scene = load("res://scenes/units/OrkBoy.tscn")
 		if boy_scene == null:
 			push_error("Failed to load OrkBoy scene")
 			continue
-		for j in range(2):
+		for j in range(1):
 			var boy = boy_scene.instantiate()
 			boy_squad.append(boy)
 		army.append(boy_squad)

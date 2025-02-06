@@ -7,4 +7,4 @@
 script = ExtResource("1_warboss")
 
 [node name="ColorRect" parent="." index="0"]
-color = Color(0.8, 0.1, 0.1, 1.0) 
+color = Color(0.6, 0.1, 0.1, 1.0)  # Darker red base color 

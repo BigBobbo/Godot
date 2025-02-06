@@ -6,6 +6,7 @@ class_name Unit
 var movement: int
 var weapon_skill: int
 var ballistic_skill: int
+var shooting_range: int = 12  # Default 12 cells range (adjust as needed)
 var strength: int
 var toughness: int
 var wounds: int
@@ -31,16 +32,17 @@ func _init():
 func _ready():
 	# Add player color tint
 	if owner_player == GameEnums.PlayerTurn.PLAYER_1:
-		color_rect.modulate = Color(1.0, 0.8, 0.8)  # Light red tint for player 1
+		color_rect.modulate = Color(0.9, 0.2, 0.2)  # Bright red for player 1
 	else:
-		color_rect.modulate = Color(0.8, 0.8, 1.0)  # Light blue tint for player 2
+		color_rect.modulate = Color(0.2, 0.2, 0.9)  # Bright blue for player 2
 
 	# Set up health bar
 	health_bar.max_value = wounds
 	health_bar.value = current_wounds
 
 	# Set unit label
-	unit_label.text = get_unit_type()
+	var player_indicator = "P1-" if owner_player == GameEnums.PlayerTurn.PLAYER_1 else "P2-"
+	unit_label.text = player_indicator + get_unit_type()
 
 func set_base_stats():
 	# Override in child classes
@@ -60,17 +62,20 @@ func reset_actions():
 	has_shot = false
 	has_fought = false
 
+func roll_dice() -> int:
+	return randi() % 6 + 1
+
 func roll_to_hit(is_melee: bool) -> bool:
-	var roll = randi() % 6 + 1
+	var roll = roll_dice()
 	return roll >= (weapon_skill if is_melee else ballistic_skill)
 
 func roll_to_wound(target_toughness: int) -> bool:
-	var roll = randi() % 6 + 1
+	var roll = roll_dice()
 	var required = get_wound_roll_required(strength, target_toughness)
 	return roll >= required
 
 func roll_armor_save() -> bool:
-	var roll = randi() % 6 + 1
+	var roll = roll_dice()
 	return roll >= armor_save
 
 static func get_wound_roll_required(attacker_strength: int, defender_toughness: int) -> int:

@@ -1,4 +1,4 @@
-[gd_scene load_steps=3 format=3 uid="uid://dksw13fwkhjkv"]
+[gd_scene load_steps=4 format=3 uid="uid://dksw13fwkhjkv"]
 
 [ext_resource type="Script" path="res://scenes/game/Game.gd" id="1_xxxxx"]
 [ext_resource type="PackedScene" path="res://scenes/battlefield/Battlefield.tscn" id="2_xxxxx"]

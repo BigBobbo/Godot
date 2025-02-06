@@ -1,6 +1,10 @@
 [gd_scene load_steps=2 format=3 uid="uid://XXXXXXXXXXXX"]
 
-[ext_resource type="Script" path="res://scenes/battlefield/Battlefield.gd" id="1_xxxxx"]
+[ext_resource type="Script" path="res://scenes/battlefield/Battlefield.gd" id="1_battlefield"]
+[ext_resource type="PackedScene" path="res://scenes/ui/CombatLog.tscn" id="2_combatlog"]
 
 [node name="Battlefield" type="Node2D"]
-script = ExtResource("1_xxxxx") 
+script = ExtResource("1_battlefield")
+
+[node name="CombatLog" parent="." instance=ExtResource("2_combatlog")]
+position = Vector2(600, 250)  # Adjust these values to position the log where you want it 
