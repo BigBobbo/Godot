@@ -1,5 +1,7 @@
 extends Node2D
 
+const RangeIndicator = preload("res://scenes/battlefield/RangeIndicator.gd")
+
 const GRID_WIDTH = 24  # 24 cells wide
 const GRID_HEIGHT = 24  # 24 cells high
 
@@ -7,6 +9,7 @@ var grid: Grid
 var selected_unit: Unit = null
 var movement_highlights: Array[Node2D] = []
 var shooting_highlights: Array[Node2D] = []
+var range_indicator: Node2D = null
 var deployment_highlights: Array[Node2D] = []
 var deployment_zones = {
 	GameEnums.PlayerTurn.PLAYER_1: Rect2i(0, 0, GRID_WIDTH, 6),  # Player 1's deployment zone (bottom)
@@ -99,6 +102,9 @@ func clear_highlights():
 	for highlight in shooting_highlights:
 		highlight.queue_free()
 	shooting_highlights.clear()
+	if range_indicator:
+		range_indicator.queue_free()
+		range_indicator = null
 
 func select_unit(unit: Unit):
 	print("\nSelect Unit called:")
@@ -170,6 +176,13 @@ func highlight_valid_targets(unit: Unit):
 		print("- ERROR: Could not find shooter position")
 		return
 	
+	# Add range indicator
+	range_indicator = create_range_indicator(
+		grid.grid_to_world(unit_pos),
+		unit.shooting_range
+	)
+	add_child(range_indicator)
+	
 	var targets = get_units_in_range(unit_pos, unit.shooting_range, true, unit.owner_player)
 	print("- Found targets: ", targets.size())
 	for target_data in targets:
@@ -190,6 +203,10 @@ func shoot_at_target(shooter: Unit, target: Unit):
 		combat_log.add_message("Target out of range!", Color.RED)
 		return
 	
+	if not grid.has_line_of_sight(shooter_pos, target_pos):
+		combat_log.add_message("No line of sight to target!", Color.RED)
+		return
+
 	var hits = 0
 	var hit_rolls = []
 	# Roll to hit
@@ -291,3 +308,13 @@ func handle_shooting_click(grid_pos: Vector2i):
 			print("- Distance to target: ", grid.get_distance(grid.get_unit_cell_pos(selected_unit), grid_pos))
 			print("- Shooter range: ", selected_unit.shooting_range)
 			shoot_at_target(selected_unit, clicked_unit)
+
+func create_range_indicator(center_pos: Vector2, range: int) -> Node2D:
+	var indicator = Node2D.new()
+	
+	# Create circle outline
+	var circle = RangeIndicator.new(range * Grid.CELL_SIZE)
+	indicator.add_child(circle)
+	
+	indicator.position = center_pos
+	return indicator

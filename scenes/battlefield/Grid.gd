@@ -103,3 +103,27 @@ func get_unit_cell_pos(unit: Unit) -> Vector2i:
 		if cells[pos] == unit:
 			return pos
 	return Vector2i(-1, -1)  # Invalid position if unit not found 
+
+func has_line_of_sight(from_pos: Vector2i, to_pos: Vector2i) -> bool:
+	# Simple line of sight check - just checking if there are units in between
+	var dx = to_pos.x - from_pos.x
+	var dy = to_pos.y - from_pos.y
+	var steps = max(abs(dx), abs(dy))
+	
+	if steps == 0:
+		return true
+		
+	var x_step = float(dx) / steps
+	var y_step = float(dy) / steps
+	
+	# Check each cell along the line
+	for i in range(1, steps):
+		var check_x = from_pos.x + floor(x_step * i)
+		var check_y = from_pos.y + floor(y_step * i)
+		var check_pos = Vector2i(check_x, check_y)
+		
+		# If there's a unit in the way, block line of sight
+		if cells.has(check_pos) and check_pos != to_pos:
+			return false
+	
+	return true 
