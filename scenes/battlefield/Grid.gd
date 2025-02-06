@@ -64,6 +64,22 @@ func get_cells_in_range(from_pos: Vector2i, range: int) -> Array:
     for x in range(-range, range + 1):
         for y in range(-range, range + 1):
             var check_pos = Vector2i(from_pos.x + x, from_pos.y + y)
-            if is_within_bounds(check_pos) and Vector2i(x, y).length() <= range:
+            # Manhattan distance for movement (no diagonal movement)
+            if is_within_bounds(check_pos) and abs(x) + abs(y) <= range and is_cell_empty(check_pos):
                 cells_in_range.append(check_pos)
-    return cells_in_range 
+    return cells_in_range
+
+func move_unit(unit: Unit, from_pos: Vector2i, to_pos: Vector2i) -> bool:
+    if not is_within_bounds(to_pos) or not is_cell_empty(to_pos):
+        return false
+    
+    cells.erase(from_pos)
+    cells[to_pos] = unit
+    unit.position = grid_to_world(to_pos)
+    return true
+
+func get_unit_cell_pos(unit: Unit) -> Vector2i:
+    for pos in cells:
+        if cells[pos] == unit:
+            return pos
+    return Vector2i(-1, -1)  # Invalid position if unit not found 

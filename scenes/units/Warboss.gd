@@ -9,3 +9,6 @@ func set_base_stats():
 	wounds = 4
 	armor_save = 4
 	attacks = 4 
+
+func get_unit_type() -> String:
+	return "Warboss" 

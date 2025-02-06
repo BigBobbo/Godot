@@ -4,6 +4,7 @@ var current_phase: GameEnums.GamePhase = GameEnums.GamePhase.DEPLOYMENT
 var current_player: GameEnums.PlayerTurn = GameEnums.PlayerTurn.PLAYER_1
 var deployment_units_remaining = []
 var battlefield: Node2D
+@onready var ui = $GameUI
 
 func _ready():
 	battlefield = $Battlefield
@@ -40,7 +41,7 @@ func create_ork_army() -> Array:
 		if boy_scene == null:
 			push_error("Failed to load OrkBoy scene")
 			continue
-		for j in range(10):
+		for j in range(2):
 			var boy = boy_scene.instantiate()
 			boy_squad.append(boy)
 		army.append(boy_squad)
@@ -52,16 +53,23 @@ func next_phase():
 		GameEnums.GamePhase.DEPLOYMENT:
 			if deployment_units_remaining.is_empty():
 				current_phase = GameEnums.GamePhase.MOVEMENT
+				battlefield.clear_selection()
 		GameEnums.GamePhase.MOVEMENT:
 			current_phase = GameEnums.GamePhase.SHOOTING
+			battlefield.clear_selection()
+			# Reset movement flags at end of next turn
+			if current_player == GameEnums.PlayerTurn.PLAYER_2:
+				reset_unit_actions()
 		GameEnums.GamePhase.SHOOTING:
 			current_phase = GameEnums.GamePhase.MELEE
 		GameEnums.GamePhase.MELEE:
 			current_phase = GameEnums.GamePhase.MOVEMENT
 			switch_player()
+	ui.update_labels()
 
 func switch_player():
-	current_player = GameEnums.PlayerTurn.PLAYER_2 if current_player == GameEnums.PlayerTurn.PLAYER_1 else GameEnums.PlayerTurn.PLAYER_1 
+	current_player = GameEnums.PlayerTurn.PLAYER_2 if current_player == GameEnums.PlayerTurn.PLAYER_1 else GameEnums.PlayerTurn.PLAYER_1
+	ui.update_labels()
 
 func _input(event):
 	if event.is_action_pressed("next_phase"):
@@ -99,3 +107,9 @@ func flatten_army(army: Array) -> Array:
 		elif unit_or_squad is Array:  # It's a squad
 			flattened.append_array(unit_or_squad)
 	return flattened
+
+func reset_unit_actions():
+	for pos in battlefield.grid.cells:
+		var unit = battlefield.grid.cells[pos]
+		if unit is Unit:
+			unit.reset_actions()

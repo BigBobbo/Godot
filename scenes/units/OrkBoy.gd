@@ -8,4 +8,7 @@ func set_base_stats():
     toughness = 4
     wounds = 1
     armor_save = 6
-    attacks = 2 
+    attacks = 2
+
+func get_unit_type() -> String:
+    return "Ork Boy" 

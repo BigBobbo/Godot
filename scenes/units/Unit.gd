@@ -20,6 +20,9 @@ var has_fought: bool = false
 var owner_player: int
 
 @onready var color_rect = $ColorRect
+@onready var selection_highlight = $SelectionHighlight
+@onready var unit_label = $UnitLabel
+@onready var health_bar = $HealthBar
 
 func _init():
 	set_base_stats()
@@ -31,6 +34,13 @@ func _ready():
 		color_rect.modulate = Color(1.0, 0.8, 0.8)  # Light red tint for player 1
 	else:
 		color_rect.modulate = Color(0.8, 0.8, 1.0)  # Light blue tint for player 2
+
+	# Set up health bar
+	health_bar.max_value = wounds
+	health_bar.value = current_wounds
+
+	# Set unit label
+	unit_label.text = get_unit_type()
 
 func set_base_stats():
 	# Override in child classes
@@ -73,4 +83,15 @@ static func get_wound_roll_required(attacker_strength: int, defender_toughness: 
 	elif attacker_strength <= defender_toughness / 2:
 		return 6
 	else:
-		return 5 
+		return 5
+
+func get_unit_type() -> String:
+	# Override in child classes
+	return "Unit"
+
+func set_selected(selected: bool):
+	selection_highlight.visible = selected
+
+func take_damage(amount: int):
+	current_wounds = max(0, current_wounds - amount)
+	health_bar.value = current_wounds 
