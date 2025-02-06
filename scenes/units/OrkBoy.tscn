@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/units/OrkBoy.gd" id="1_orkboy"]
+[ext_resource type="PackedScene" uid="uid://xxxx" path="res://scenes/units/Unit.tscn" id="1_unit"]
+
+[node name="OrkBoy" instance=ExtResource("1_unit")]
+script = ExtResource("1_orkboy")
+
+[node name="ColorRect" parent="." index="0"]
+color = Color(0.2, 0.7, 0.2, 1.0) 

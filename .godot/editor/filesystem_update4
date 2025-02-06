@@ -1,0 +1,4 @@
+res://scenes/game/Game.tscn
+res://scenes/battlefield/Battlefield.gd
+res://scenes/units/Unit.gd
+res://scenes/units/Warboss.gd
