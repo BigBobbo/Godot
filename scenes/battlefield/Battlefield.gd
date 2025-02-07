@@ -168,7 +168,7 @@ func get_units_in_range(from_pos: Vector2i, range: int, enemy_only: bool = false
 	for cell_pos in cells_in_range:
 		if grid.cells.has(cell_pos):
 			var unit = grid.cells[cell_pos]
-			if unit is Unit:
+			if unit is Unit and not unit.is_destroyed:  # Only include non-destroyed units
 				print("- Found unit: ", unit.get_unit_type(), " at pos: ", cell_pos)
 				print("  Owner: ", unit.owner_player)
 				if enemy_only and unit.owner_player != owner:
@@ -263,10 +263,6 @@ func shoot_at_target(shooter: Unit, target: Unit):
 		combat_log.add_message("Final damage dealt: " + str(damage), Color.RED)
 		if target.current_wounds <= 0:
 			combat_log.add_message(target.get_unit_type() + " was destroyed!", Color.RED)
-			# Remove the destroyed unit from the grid and scene
-			var unit_pos = grid.get_unit_cell_pos(target)
-			grid.remove_unit(unit_pos)
-			target.queue_free()
 	else:
 		combat_log.add_message("No damage dealt", Color.GREEN)
 	
@@ -302,7 +298,7 @@ func clear_selection():
 func handle_shooting_click(grid_pos: Vector2i):
 	print("\nHandling shooting click:")
 	print("- Click position: ", grid_pos)
-	print("- Current phase: ", game.current_phase)  # Verify we're in shooting phase
+	print("- Current phase: ", game.current_phase)
 	if not grid.is_within_bounds(grid_pos):
 		print("- Click out of bounds")
 		return
@@ -310,6 +306,10 @@ func handle_shooting_click(grid_pos: Vector2i):
 	var clicked_unit = grid.cells.get(grid_pos)
 	print("- Unit at position: ", "None" if not clicked_unit else clicked_unit.get_unit_type())
 	if clicked_unit is Unit:
+		# Don't allow selecting or targeting destroyed units
+		if clicked_unit.is_destroyed:
+			return
+
 		print("- Clicked unit: ", clicked_unit.get_unit_type(), " owner: ", clicked_unit.owner_player)
 		print("- Current player: ", game.current_player)
 		print("- Has shot: ", clicked_unit.has_shot)

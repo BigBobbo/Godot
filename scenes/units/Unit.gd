@@ -19,6 +19,7 @@ var has_moved: bool = false
 var has_shot: bool = false
 var has_fought: bool = false
 var owner_player: int
+var is_destroyed: bool = false
 
 @onready var color_rect = $ColorRect
 @onready var selection_highlight = $SelectionHighlight
@@ -49,13 +50,13 @@ func set_base_stats():
 	pass
 
 func can_move() -> bool:
-	return not has_moved
+	return not has_moved and not is_destroyed
 
 func can_shoot() -> bool:
-	return not has_shot
+	return not has_shot and not is_destroyed
 
 func can_fight() -> bool:
-	return not has_fought
+	return not has_fought and not is_destroyed
 
 func reset_actions():
 	has_moved = false
@@ -98,5 +99,17 @@ func set_selected(selected: bool):
 	selection_highlight.visible = selected
 
 func take_damage(amount: int):
-	current_wounds = max(0, current_wounds - amount)
-	health_bar.value = current_wounds 
+	current_wounds -= amount
+	if current_wounds <= 0:
+		is_destroyed = true
+		# Visual feedback for destroyed unit
+		modulate = Color(0.5, 0.5, 0.5, 0.5)  # Gray out the unit
+		# Add a destroyed indicator
+		unit_label.text = unit_label.text + " (Destroyed)"
+	health_bar.value = current_wounds
+
+func can_be_targeted() -> bool:
+	return not is_destroyed
+
+func can_be_targeted_by(attacker_player: int) -> bool:
+	return not is_destroyed and owner_player != attacker_player

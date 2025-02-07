@@ -77,6 +77,8 @@ func next_phase():
 			current_phase = GameEnums.GamePhase.MELEE
 		GameEnums.GamePhase.MELEE:
 			current_phase = GameEnums.GamePhase.MOVEMENT
+			if current_player == GameEnums.PlayerTurn.PLAYER_2:
+				remove_destroyed_units()  # Clean up at end of turn
 			switch_player()
 	ui.update_labels()
 
@@ -151,3 +153,14 @@ func reset_unit_actions():
 		var unit = battlefield.grid.cells[pos]
 		if unit is Unit:
 			unit.reset_actions()
+
+func remove_destroyed_units():
+	var positions_to_clear = []
+	for pos in battlefield.grid.cells:
+		var unit = battlefield.grid.cells[pos]
+		if unit is Unit and unit.is_destroyed:
+			positions_to_clear.append(pos)
+			unit.queue_free()
+	
+	for pos in positions_to_clear:
+		battlefield.grid.remove_unit(pos)
