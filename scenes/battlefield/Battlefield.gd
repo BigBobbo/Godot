@@ -11,10 +11,13 @@ var movement_highlights: Array[Node2D] = []
 var shooting_highlights: Array[Node2D] = []
 var range_indicator: Node2D = null
 var deployment_highlights: Array[Node2D] = []
+var deployment_preview: Unit = null  # Ghost unit showing what will be deployed
+var deployment_panel: Panel
 var deployment_zones = {
 	GameEnums.PlayerTurn.PLAYER_1: Rect2i(0, 0, GRID_WIDTH, 6),  # Player 1's deployment zone (bottom)
 	GameEnums.PlayerTurn.PLAYER_2: Rect2i(0, GRID_HEIGHT - 6, GRID_WIDTH, 6)  # Player 2's deployment zone (top)
 }
+var unit_stats: Panel
 
 @onready var game = get_parent()
 @onready var combat_log = $CombatLog
@@ -23,6 +26,12 @@ func _ready():
 	grid = Grid.new(GRID_WIDTH, GRID_HEIGHT)
 	add_child(grid)
 	create_deployment_zones()
+	unit_stats = $CanvasLayer/UnitStats
+	deployment_panel = $CanvasLayer/DeploymentPanel
+	deployment_panel.unit_selected.connect(_on_deployment_unit_selected)
+	# Wait one frame to ensure game is fully initialized
+	await get_tree().process_frame
+	update_deployment_preview()
 
 func create_deployment_zones():
 	# Player 1 deployment zone (red)
@@ -74,9 +83,15 @@ func handle_deployment_click(grid_pos: Vector2i):
 	if not is_in_deployment_zone(grid_pos, game.current_player):
 		return
 		
-	var unit_to_deploy = game.get_next_unit_to_deploy()
-	if unit_to_deploy:
+	if deployment_preview:
+		# Use the actual unit from the deployment panel instead of a duplicate
+		var unit_to_deploy = deployment_panel.get_selected_unit()
+		if not unit_to_deploy:
+			return
+			
 		game.deploy_unit(unit_to_deploy, grid_pos)
+		deployment_panel.remove_unit(unit_to_deploy)  # Remove the deployed unit from the panel
+		update_deployment_preview()  # Update preview for next unit
 
 func is_in_deployment_zone(grid_pos: Vector2i, player: int) -> bool:
 	var zone = deployment_zones[player]
@@ -312,9 +327,50 @@ func handle_shooting_click(grid_pos: Vector2i):
 func create_range_indicator(center_pos: Vector2, range: int) -> Node2D:
 	var indicator = Node2D.new()
 	
-	# Create circle outline
-	var circle = RangeIndicator.new(range * Grid.CELL_SIZE)
+	# Convert range to pixels
+	var range_in_pixels = range * Grid.CELL_SIZE
+	var circle = RangeIndicator.new(range_in_pixels)
 	indicator.add_child(circle)
 	
 	indicator.position = center_pos
 	return indicator
+
+func _process(_delta):
+	if not unit_stats:  # Skip if unit_stats isn't ready yet
+		print("UnitStats not ready")  # Debug print
+		return
+		
+	var mouse_pos = get_local_mouse_position()
+	var grid_pos = grid.world_to_grid(mouse_pos)
+	var hovered_unit = grid.cells.get(grid_pos)
+	
+	if hovered_unit is Unit:
+		print("Hovering over unit: ", hovered_unit.get_unit_type())  # Debug print
+		unit_stats.update_stats(hovered_unit)
+		unit_stats.visible = true
+		unit_stats.position = mouse_pos + Vector2(20, 20)  # Offset from cursor
+	else:
+		unit_stats.visible = false
+
+func update_deployment_preview():
+	if not game:
+		return
+	if game.current_phase == GameEnums.GamePhase.DEPLOYMENT:
+		deployment_panel.visible = true
+		deployment_panel.update_units(game.get_deployable_units())
+		# Clear existing preview if no units left to deploy
+		if deployment_preview and game.get_deployable_units().is_empty():
+			deployment_preview.queue_free()
+			deployment_preview = null
+	else:
+		deployment_panel.visible = false
+		if deployment_preview:
+			deployment_preview.queue_free()
+			deployment_preview = null
+
+func _on_deployment_unit_selected(unit: Unit):
+	if deployment_preview:
+		deployment_preview.queue_free()
+	deployment_preview = unit.duplicate()
+	deployment_preview.modulate.a = 0.5
+	add_child(deployment_preview)

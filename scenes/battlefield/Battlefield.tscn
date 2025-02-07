@@ -1,10 +1,22 @@
-[gd_scene load_steps=2 format=3 uid="uid://XXXXXXXXXXXX"]
+[gd_scene load_steps=4 format=3 uid="uid://XXXXXXXXXXXX"]
 
 [ext_resource type="Script" path="res://scenes/battlefield/Battlefield.gd" id="1_battlefield"]
 [ext_resource type="PackedScene" path="res://scenes/ui/CombatLog.tscn" id="2_combatlog"]
+[ext_resource type="PackedScene" path="res://scenes/ui/UnitStats.tscn" id="3_unitstats"]
+[ext_resource type="PackedScene" path="res://scenes/ui/DeploymentPanel.tscn" id="4_deploymentpanel"]
 
 [node name="Battlefield" type="Node2D"]
 script = ExtResource("1_battlefield")
 
 [node name="CombatLog" parent="." instance=ExtResource("2_combatlog")]
-position = Vector2(600, 250)  # Adjust these values to position the log where you want it 
+position = Vector2(600, 250)
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="UnitStats" parent="CanvasLayer" instance=ExtResource("3_unitstats")]
+offset_right = 200.0
+offset_bottom = 160.0
+mouse_filter = 1
+
+[node name="DeploymentPanel" parent="CanvasLayer" instance=ExtResource("4_deploymentpanel")]
+visible = false 

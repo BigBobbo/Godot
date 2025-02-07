@@ -41,6 +41,9 @@ A simplified tactical game based on Warhammer 40K rules, implemented in Godot 4.
 2. Fix deployment zone visualization
 3. Add visual feedback for phase changes
 4. Add confirmation for ending phases/turns
+5. Fix unit stats visibility
+6. Fix unit stats position
+7. Range circle for shooting does not align with actual range
 
 ### Polish
 1. Add better unit visuals
@@ -48,6 +51,13 @@ A simplified tactical game based on Warhammer 40K rules, implemented in Godot 4.
 3. Add turn/phase indicators
 4. Add hover tooltips for units
 5. Add battle statistics tracking
+
+### To Be Triaged
+1. Show unit that is about to be deployed
+2. Introduce the concept of units as opposed to models
+3. Destroyed units should be marked as such but remain on the battlefield until the end of the turn
+4. Add a way to select a unit to deploy
+
 
 ## Current Phase Implementation Status
 - [x] Deployment Phase

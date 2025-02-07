@@ -1,0 +1,80 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes/ui/UnitStats.gd" id="1_unitstats"]
+
+[node name="UnitStats" type="Panel"]
+custom_minimum_size = Vector2(200, 160)
+z_index = 100
+layer = 100
+script = ExtResource("1_unitstats")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="UnitName" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "Unit Name"
+
+[node name="HSeparator" type="HSeparator" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="Stats" type="GridContainer" parent="VBoxContainer"]
+layout_mode = 2
+columns = 2
+
+[node name="MovementLabel" type="Label" parent="VBoxContainer/Stats"]
+layout_mode = 2
+text = "Movement:"
+
+[node name="Movement" type="Label" parent="VBoxContainer/Stats"]
+layout_mode = 2
+text = "6\""
+
+[node name="BSLabel" type="Label" parent="VBoxContainer/Stats"]
+layout_mode = 2
+text = "BS:"
+
+[node name="BS" type="Label" parent="VBoxContainer/Stats"]
+layout_mode = 2
+text = "3+"
+
+[node name="StrengthLabel" type="Label" parent="VBoxContainer/Stats"]
+layout_mode = 2
+text = "Strength:"
+
+[node name="Strength" type="Label" parent="VBoxContainer/Stats"]
+layout_mode = 2
+text = "4"
+
+[node name="ToughnessLabel" type="Label" parent="VBoxContainer/Stats"]
+layout_mode = 2
+text = "Toughness:"
+
+[node name="Toughness" type="Label" parent="VBoxContainer/Stats"]
+layout_mode = 2
+text = "4"
+
+[node name="WoundsLabel" type="Label" parent="VBoxContainer/Stats"]
+layout_mode = 2
+text = "Wounds:"
+
+[node name="Wounds" type="Label" parent="VBoxContainer/Stats"]
+layout_mode = 2
+text = "2/2"
+
+[node name="SaveLabel" type="Label" parent="VBoxContainer/Stats"]
+layout_mode = 2
+text = "Save:"
+
+[node name="Save" type="Label" parent="VBoxContainer/Stats"]
+layout_mode = 2
+text = "5+" 

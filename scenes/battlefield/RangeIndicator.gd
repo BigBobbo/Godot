@@ -3,7 +3,8 @@ extends Node2D
 var radius: float = 0
 
 func _init(r: float):
-	radius = r
+	# Convert from grid cells to pixels, adding half a cell to account for center position
+	radius = r + Grid.CELL_SIZE/2
 
 func _draw():
 	# Draw filled circle with low opacity
