@@ -7,6 +7,7 @@ const GRID_HEIGHT = 24  # 24 cells high
 
 var grid: Grid
 var selected_unit: Unit = null
+var selected_squad: Array = []  # Currently selected squad
 var movement_highlights: Array[Node2D] = []
 var shooting_highlights: Array[Node2D] = []
 var range_indicator: Node2D = null
@@ -18,9 +19,12 @@ var deployment_zones = {
 	GameEnums.PlayerTurn.PLAYER_2: Rect2i(0, GRID_HEIGHT - 6, GRID_WIDTH, 6)  # Player 2's deployment zone (top)
 }
 var unit_stats: Panel
+var squad_panel: Panel
+var squad_list: ItemList
 
 @onready var game = get_parent()
 @onready var combat_log = $CombatLog
+@onready var finish_squad_button = $FinishSquadButton
 
 func _ready():
 	grid = Grid.new(GRID_WIDTH, GRID_HEIGHT)
@@ -28,7 +32,13 @@ func _ready():
 	create_deployment_zones()
 	unit_stats = $CanvasLayer/UnitStats
 	deployment_panel = $CanvasLayer/DeploymentPanel
+	squad_panel = $CanvasLayer/SquadPanel
+	squad_list = $CanvasLayer/SquadPanel/VBoxContainer/SquadList
+	squad_list.item_selected.connect(_on_squad_selected)
 	deployment_panel.unit_selected.connect(_on_deployment_unit_selected)
+	finish_squad_button.pressed.connect(_on_finish_squad_pressed)
+	finish_squad_button.hide()
+	squad_panel.hide()
 	# Wait one frame to ensure game is fully initialized
 	await get_tree().process_frame
 	update_deployment_preview()
@@ -145,7 +155,9 @@ func handle_movement_click(grid_pos: Vector2i):
 	var clicked_unit = grid.cells.get(grid_pos)
 	if clicked_unit is Unit:
 		if clicked_unit.owner_player == game.current_player:
-			select_unit(clicked_unit)
+			# Only allow selecting units from the current squad
+			if not selected_squad.is_empty() and selected_squad.has(clicked_unit):
+				select_unit(clicked_unit)
 	elif selected_unit and selected_unit.can_move():
 		var from_pos = grid.get_unit_cell_pos(selected_unit)
 		if from_pos != Vector2i(-1, -1):
@@ -154,6 +166,10 @@ func handle_movement_click(grid_pos: Vector2i):
 				if grid.move_unit(selected_unit, from_pos, grid_pos):
 					selected_unit.has_moved = true
 					clear_selection()
+					# Highlight other moveable units in the squad
+					for unit in selected_squad:
+						if unit.can_move():
+							highlight_valid_moves(unit)
 
 func get_units_in_range(from_pos: Vector2i, range: int, enemy_only: bool = false, owner: int = -1) -> Array:
 	print("\nGetting units in range:")
@@ -374,3 +390,50 @@ func _on_deployment_unit_selected(unit: Unit):
 	deployment_preview = unit.duplicate()
 	deployment_preview.modulate.a = 0.5
 	add_child(deployment_preview)
+
+func select_squad(squad: Array):
+	selected_squad = squad
+	finish_squad_button.show()
+	# Highlight all moveable units in the squad
+	for unit in squad:
+		if unit.can_move():
+			highlight_valid_moves(unit)
+
+func _on_finish_squad_pressed():
+	selected_squad = []
+	clear_selection()
+	finish_squad_button.hide()
+
+func update_squad_list():
+	squad_list.clear()
+	var player_squads = game.active_squads[game.current_player]
+	for squad in player_squads:
+		if squad.is_empty():
+			continue
+		var squad_name = squad[0].get_unit_type()
+		if squad.size() > 1:
+			squad_name += " Squad (" + str(squad.size()) + " models)"
+		squad_list.add_item(squad_name)
+
+func _on_squad_selected(index: int):
+	var player_squads = game.active_squads[game.current_player]
+	if index >= 0 and index < player_squads.size():
+		select_squad(player_squads[index])
+
+func next_phase():
+	match game.current_phase:
+		GameEnums.GamePhase.DEPLOYMENT:
+			deployment_panel.hide()
+			squad_panel.hide()
+		GameEnums.GamePhase.MOVEMENT:
+			squad_panel.show()
+			update_squad_list()
+			print("Showing squad panel with ", game.active_squads[game.current_player].size(), " squads")
+		GameEnums.GamePhase.SHOOTING:
+			squad_panel.hide()
+		GameEnums.GamePhase.MELEE:
+			squad_panel.hide()
+
+func add_squad_to_active(squad: Array, player: int):
+	game.active_squads[player].append(squad)
+	print("Added squad to active squads. Total squads:", game.active_squads[player].size())

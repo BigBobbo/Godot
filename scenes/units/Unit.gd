@@ -20,6 +20,7 @@ var has_shot: bool = false
 var has_fought: bool = false
 var owner_player: int
 var is_destroyed: bool = false
+var squad_id: int = -1  # To identify which squad this unit belongs to
 
 @onready var color_rect = $ColorRect
 @onready var selection_highlight = $SelectionHighlight

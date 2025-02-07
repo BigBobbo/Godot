@@ -9,6 +9,12 @@ var deployment_units_remaining = {
 var battlefield: Node2D
 @onready var ui = $GameUI
 var setup_complete = false
+var active_squads = {
+	GameEnums.PlayerTurn.PLAYER_1: [],  # Array of arrays (squads)
+	GameEnums.PlayerTurn.PLAYER_2: []
+}
+var current_squad: Array = []  # Currently selected squad
+var next_squad_id: int = 0
 
 func _ready():
 	battlefield = $Battlefield
@@ -29,6 +35,10 @@ func setup_game():
 	# Keep armies as squads for deployment
 	deployment_units_remaining[GameEnums.PlayerTurn.PLAYER_1] = player1_army
 	deployment_units_remaining[GameEnums.PlayerTurn.PLAYER_2] = player2_army
+	
+	# Initialize active squads (will be populated after deployment)
+	active_squads[GameEnums.PlayerTurn.PLAYER_1] = []
+	active_squads[GameEnums.PlayerTurn.PLAYER_2] = []
 
 func create_ork_army() -> Array:
 	var army = []
@@ -41,19 +51,22 @@ func create_ork_army() -> Array:
 	# Create Warboss squad (single model)
 	var warboss_squad = []
 	var warboss = warboss_scene.instantiate()
+	warboss.squad_id = get_next_squad_id()
 	warboss_squad.append(warboss)
 	army.append(warboss_squad)
 	print("Added warboss squad")
 	
 	# Create two squads of Ork Boyz
-	for i in range(2):
+	for i in range(1):
 		var boy_squad = []
+		var new_squad_id = get_next_squad_id()
 		var boy_scene = load("res://scenes/units/OrkBoy.tscn")
 		if boy_scene == null:
 			push_error("Failed to load OrkBoy scene")
 			continue
 		for j in range(2):
 			var boy = boy_scene.instantiate()
+			boy.squad_id = new_squad_id
 			boy_squad.append(boy)
 		army.append(boy_squad)
 		print("Added boy squad ", i, " with ", boy_squad.size(), " boys")
@@ -67,19 +80,23 @@ func next_phase():
 			   deployment_units_remaining[GameEnums.PlayerTurn.PLAYER_2].is_empty():
 				current_phase = GameEnums.GamePhase.MOVEMENT
 				battlefield.clear_selection()
+				battlefield.next_phase()  # Tell battlefield about phase change
 		GameEnums.GamePhase.MOVEMENT:
 			current_phase = GameEnums.GamePhase.SHOOTING
 			battlefield.clear_selection()
+			battlefield.next_phase()  # Tell battlefield about phase change
 			# Reset movement flags at end of next turn
 			if current_player == GameEnums.PlayerTurn.PLAYER_2:
 				reset_unit_actions()
 		GameEnums.GamePhase.SHOOTING:
 			current_phase = GameEnums.GamePhase.MELEE
+			battlefield.next_phase()  # Tell battlefield about phase change
 		GameEnums.GamePhase.MELEE:
 			current_phase = GameEnums.GamePhase.MOVEMENT
 			if current_player == GameEnums.PlayerTurn.PLAYER_2:
 				remove_destroyed_units()  # Clean up at end of turn
 			switch_player()
+			battlefield.next_phase()  # Tell battlefield about phase change
 	ui.update_labels()
 
 func switch_player():
@@ -117,6 +134,15 @@ func deploy_unit(unit: Unit, grid_pos: Vector2i) -> bool:
 			print("Squad empty, removing from deployment units")
 			# Remove the squad/unit from deployment_units_remaining
 			deployment_units_remaining[current_player].erase(current_squad)
+			# Add the squad to active squads when fully deployed
+			# Create a new squad with all deployed units that share the same squad_id
+			var deployed_squad = []
+			for pos in battlefield.grid.cells:
+				var deployed_unit = battlefield.grid.cells[pos]
+				if deployed_unit is Unit and deployed_unit.squad_id == unit.squad_id:
+					deployed_squad.append(deployed_unit)
+			active_squads[current_player].append(deployed_squad)
+			print("Added deployed squad of size:", deployed_squad.size())
 			print("Squads remaining for player", current_player, ":", deployment_units_remaining[current_player].size())
 			switch_player()
 			# Update the deployment panel with the next squad
@@ -164,3 +190,10 @@ func remove_destroyed_units():
 	
 	for pos in positions_to_clear:
 		battlefield.grid.remove_unit(pos)
+
+func get_next_squad_id() -> int:
+	next_squad_id += 1
+	return next_squad_id - 1
+
+func add_squad_to_active(squad: Array, player: int):
+	active_squads[player].append(squad)
