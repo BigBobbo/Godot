@@ -10,29 +10,44 @@ signal unit_selected(unit: Unit)
 @onready var toughness_label = $VBoxContainer/SelectedUnitInfo/Toughness
 @onready var wounds_label = $VBoxContainer/SelectedUnitInfo/Wounds
 
-var units_to_deploy: Array[Unit] = []
+var units_to_deploy: Array = []  # Array of units in the current squad
 var selected_unit: Unit = null
+var current_squad: Array = []  # Current squad being deployed
+var available_squads: Array = []  # All available squads
+var selected_squad_index: int = -1
 
 func _ready():
 	unit_list.item_selected.connect(_on_unit_selected)
 
-func update_units(units: Array[Unit]):
-	print("Updating deployment panel with units:", units.size())
-	units_to_deploy = units
-	refresh_list()
+func update_units(squads: Array):  # Expects Array of Array[Unit] (squads)
+	# Store the full squad list
+	available_squads = squads
+	refresh_squad_list()
 
-func refresh_list():
-	print("Refreshing unit list with", units_to_deploy.size(), "units")
+func refresh_squad_list():
+	print("Refreshing squad list")
 	unit_list.clear()
-	for unit in units_to_deploy:
-		print("Adding unit:", unit.get_unit_type())
-		unit_list.add_item(unit.get_unit_type())
+	# Add each squad as an item
+	for squad in available_squads:
+		var squad_name = squad[0].get_unit_type()  # Use first unit's type as squad name
+		if squad.size() > 1:
+			squad_name += " Squad (" + str(squad.size()) + " models)"
+		print("Adding squad:", squad_name)
+		unit_list.add_item(squad_name)
+	
+	if not available_squads.is_empty() and selected_squad_index == -1:
+		_on_unit_selected(0)
 
 func _on_unit_selected(index: int):
-	if index >= 0 and index < units_to_deploy.size():
-		selected_unit = units_to_deploy[index]
-		update_unit_info(selected_unit)
-		unit_selected.emit(selected_unit)
+	if index >= 0 and index < available_squads.size():
+		selected_squad_index = index
+		current_squad = available_squads[index]
+		units_to_deploy = current_squad
+		# Select first unit in squad
+		if not current_squad.is_empty():
+			selected_unit = current_squad[0]
+			update_unit_info(selected_unit)
+			unit_selected.emit(selected_unit)
 
 func update_unit_info(unit: Unit):
 	if not unit:
@@ -53,10 +68,21 @@ func update_unit_info(unit: Unit):
 
 func remove_unit(unit: Unit):
 	units_to_deploy.erase(unit)
-	refresh_list()
-	if unit == selected_unit:
-		selected_unit = null
-		update_unit_info(null)
+	current_squad.erase(unit)
+	# If squad is empty, remove it from available squads
+	if current_squad.is_empty():
+		available_squads.erase(current_squad)
+		selected_squad_index = -1
+		refresh_squad_list()
+	else:
+		# Select next unit in current squad
+		if not current_squad.is_empty():
+			selected_unit = current_squad[0]
+			update_unit_info(selected_unit)
+			unit_selected.emit(selected_unit)
 
 func get_selected_unit() -> Unit:
 	return selected_unit 
+
+func get_selected_squad() -> Array:
+	return current_squad 

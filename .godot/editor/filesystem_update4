@@ -4,3 +4,4 @@ res://scenes/units/Unit.gd
 res://scenes/units/Warboss.gd
 res://scenes/game/Game.gd
 res://scenes/battlefield/Grid.gd
+res://scenes/ui/DeploymentPanel.gd

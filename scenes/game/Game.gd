@@ -3,8 +3,8 @@ extends Node2D
 var current_phase: GameEnums.GamePhase = GameEnums.GamePhase.DEPLOYMENT
 var current_player: GameEnums.PlayerTurn = GameEnums.PlayerTurn.PLAYER_1
 var deployment_units_remaining = {
-	GameEnums.PlayerTurn.PLAYER_1: [],
-	GameEnums.PlayerTurn.PLAYER_2: []
+	GameEnums.PlayerTurn.PLAYER_1: [],  # Array of squads (each squad is an array of units)
+	GameEnums.PlayerTurn.PLAYER_2: []   # Array of squads
 }
 var battlefield: Node2D
 @onready var ui = $GameUI
@@ -26,34 +26,38 @@ func setup_game():
 	set_army_ownership(player1_army, GameEnums.PlayerTurn.PLAYER_1)
 	set_army_ownership(player2_army, GameEnums.PlayerTurn.PLAYER_2)
 	
-	# Flatten armies into a single array of units for deployment
-	deployment_units_remaining[GameEnums.PlayerTurn.PLAYER_1] = flatten_army(player1_army)
-	deployment_units_remaining[GameEnums.PlayerTurn.PLAYER_2] = flatten_army(player2_army)
-	print("Units to deploy - P1:", deployment_units_remaining[GameEnums.PlayerTurn.PLAYER_1].size(),
-		  " P2:", deployment_units_remaining[GameEnums.PlayerTurn.PLAYER_2].size())
+	# Keep armies as squads for deployment
+	deployment_units_remaining[GameEnums.PlayerTurn.PLAYER_1] = player1_army
+	deployment_units_remaining[GameEnums.PlayerTurn.PLAYER_2] = player2_army
 
 func create_ork_army() -> Array:
 	var army = []
+	print("Creating army...")
 	# Create Warboss
 	var warboss_scene = load("res://scenes/units/Warboss.tscn")
 	if warboss_scene == null:
 		push_error("Failed to load Warboss scene")
 		return army
+	# Create Warboss squad (single model)
+	var warboss_squad = []
 	var warboss = warboss_scene.instantiate()
-	army.append(warboss)
+	warboss_squad.append(warboss)
+	army.append(warboss_squad)
+	print("Added warboss squad")
 	
 	# Create two squads of Ork Boyz
-	for i in range(1):
+	for i in range(2):
 		var boy_squad = []
 		var boy_scene = load("res://scenes/units/OrkBoy.tscn")
 		if boy_scene == null:
 			push_error("Failed to load OrkBoy scene")
 			continue
-		for j in range(1):
+		for j in range(2):
 			var boy = boy_scene.instantiate()
 			boy_squad.append(boy)
 		army.append(boy_squad)
-	
+		print("Added boy squad ", i, " with ", boy_squad.size(), " boys")
+	print("Final army size: ", army.size(), " squads")
 	return army
 
 func next_phase():
@@ -84,34 +88,52 @@ func _input(event):
 	if event.is_action_pressed("next_phase"):
 		next_phase()
 
-func get_deployable_units() -> Array[Unit]:
+func get_deployable_units() -> Array:  # Returns Array of Array[Unit] (squads)
 	if not setup_complete:
 		return []
 	print("Getting deployable units for player:", current_player)
-	var player_units = deployment_units_remaining[current_player]
-	print("Found units:", player_units.size())
-	var typed_array: Array[Unit] = []
-	typed_array.assign(player_units)
-	return typed_array
+	var player_squads = deployment_units_remaining[current_player]
+	print("Available squads:", player_squads.size())
+	if player_squads.is_empty():
+		return []
+	
+	# Return all squads
+	return player_squads
 
 func deploy_unit(unit: Unit, grid_pos: Vector2i) -> bool:
 	if not battlefield.is_in_deployment_zone(grid_pos, current_player):
 		return false
 		
+	print("Attempting to deploy:", unit.get_unit_type(), "for player:", current_player)
 	if battlefield.grid.place_unit(unit, grid_pos):
-		deployment_units_remaining[current_player].erase(unit)
+		var current_squad = battlefield.deployment_panel.get_selected_squad()
+		print("Deploying unit from squad of size:", current_squad.size())
+		current_squad.erase(unit)
+		print("Squad size after removal:", current_squad.size())
+		# Only switch player when the entire squad is deployed
+		if current_squad.is_empty():
+			print("Squad empty, removing from deployment units")
+			# Remove the squad/unit from deployment_units_remaining
+			deployment_units_remaining[current_player].erase(current_squad)
+			print("Squads remaining for player", current_player, ":", deployment_units_remaining[current_player].size())
+			switch_player()
+			# Update the deployment panel with the next squad
+			battlefield.update_deployment_preview()
 		battlefield.add_child(unit)
-		switch_player()
 		return true
 	return false
 
 func set_army_ownership(army: Array, player: int):
+	print("Setting ownership for player:", player)
 	for unit_or_squad in army:
-		if unit_or_squad is Unit:
-			unit_or_squad.owner_player = player
-		elif unit_or_squad is Array:  # It's a squad
+		# All entries should be arrays (squads) now
+		if unit_or_squad is Array:
+			print("Setting ownership for squad of size:", unit_or_squad.size())
 			for unit in unit_or_squad:
 				unit.owner_player = player
+				print("Set ownership for:", unit.get_unit_type())
+		else:
+			push_error("Found non-array in army:", unit_or_squad)
 
 func flatten_army(army: Array) -> Array[Unit]:
 	var flattened = []
