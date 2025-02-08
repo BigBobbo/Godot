@@ -8,6 +8,8 @@ const GRID_HEIGHT = 24  # 24 cells high
 var grid: Grid
 var selected_unit: Unit = null
 var selected_squad: Array = []  # Currently selected squad
+var squad_original_positions: Dictionary = {}  # Stores original positions for each unit in squad
+var squad_valid_moves: Dictionary = {}  # Stores valid moves for each unit in squad
 var movement_highlights: Array[Node2D] = []
 var shooting_highlights: Array[Node2D] = []
 var range_indicator: Node2D = null
@@ -109,11 +111,10 @@ func is_in_deployment_zone(grid_pos: Vector2i, player: int) -> bool:
 
 func highlight_valid_moves(unit: Unit):
 	clear_highlights()
-	var unit_pos = grid.get_unit_cell_pos(unit)
-	if unit_pos == Vector2i(-1, -1):
+	if not squad_valid_moves.has(unit):
 		return
 	
-	var valid_moves = grid.get_cells_in_range(unit_pos, unit.movement, true)
+	var valid_moves = squad_valid_moves[unit]
 	for pos in valid_moves:
 		var highlight = create_movement_highlight()
 		highlight.position = grid.grid_to_world(pos)
@@ -142,7 +143,7 @@ func select_unit(unit: Unit):
 		print("- Selected unit: ", selected_unit.get_unit_type())
 		print("- Can shoot: ", selected_unit.can_shoot())
 		selected_unit.set_selected(true)
-		if game.current_phase == GameEnums.GamePhase.MOVEMENT and unit.can_move():
+		if game.current_phase == GameEnums.GamePhase.MOVEMENT and squad_valid_moves.has(unit):
 			highlight_valid_moves(unit)
 		elif game.current_phase == GameEnums.GamePhase.SHOOTING and unit.can_shoot():
 			print("- Attempting to highlight targets")
@@ -156,19 +157,18 @@ func handle_movement_click(grid_pos: Vector2i):
 	if clicked_unit is Unit:
 		if clicked_unit.owner_player == game.current_player:
 			# Only allow selecting units from the current squad
-			if not selected_squad.is_empty() and selected_squad.has(clicked_unit):
+			if not selected_squad.is_empty() and selected_squad.has(clicked_unit) and squad_valid_moves.has(clicked_unit):
 				select_unit(clicked_unit)
-	elif selected_unit and selected_unit.can_move():
-		var from_pos = grid.get_unit_cell_pos(selected_unit)
-		if from_pos != Vector2i(-1, -1):
-			var valid_moves = grid.get_cells_in_range(from_pos, selected_unit.movement, true)
+	elif selected_unit and squad_valid_moves.has(selected_unit):
+		if squad_valid_moves.has(selected_unit):
+			var valid_moves = squad_valid_moves[selected_unit]
 			if grid_pos in valid_moves:
+				var from_pos = grid.get_unit_cell_pos(selected_unit)
 				if grid.move_unit(selected_unit, from_pos, grid_pos):
-					selected_unit.has_moved = true
 					clear_selection()
 					# Highlight other moveable units in the squad
 					for unit in selected_squad:
-						if unit.can_move():
+						if squad_valid_moves.has(unit):
 							highlight_valid_moves(unit)
 
 func get_units_in_range(from_pos: Vector2i, range: int, enemy_only: bool = false, owner: int = -1) -> Array:
@@ -394,13 +394,44 @@ func _on_deployment_unit_selected(unit: Unit):
 func select_squad(squad: Array):
 	selected_squad = squad
 	finish_squad_button.show()
+	# Store original positions and calculate valid moves for each unit in squad
+	squad_original_positions.clear()
+	squad_valid_moves.clear()
+	for unit in squad:
+		var pos = grid.get_unit_cell_pos(unit)
+		squad_original_positions[unit] = pos
+		if unit.can_move():
+			squad_valid_moves[unit] = grid.get_cells_in_range(pos, unit.movement, true)
 	# Highlight all moveable units in the squad
 	for unit in squad:
 		if unit.can_move():
 			highlight_valid_moves(unit)
 
 func _on_finish_squad_pressed():
+	# Check coherency for all units in the squad
+	var all_coherent = true
+	for unit in selected_squad:
+		if not unit.is_in_coherency(grid, selected_squad):
+			all_coherent = false
+			break
+	
+	if not all_coherent:
+		# Revert all moved units in the squad to their original positions
+		for unit in selected_squad:
+			if squad_original_positions.has(unit):
+				var original_pos = squad_original_positions[unit]
+				var current_pos = grid.get_unit_cell_pos(unit)
+				grid.move_unit(unit, current_pos, original_pos)
+				unit.has_moved = false
+		combat_log.add_message("Squad movement reverted - models out of coherency!", Color.RED)
+	else:
+		# Mark all units in squad as moved only after confirming movement
+		for unit in selected_squad:
+			unit.has_moved = true
+	
 	selected_squad = []
+	squad_original_positions.clear()
+	squad_valid_moves.clear()
 	clear_selection()
 	finish_squad_button.hide()
 
@@ -426,12 +457,15 @@ func next_phase():
 			deployment_panel.hide()
 			squad_panel.hide()
 		GameEnums.GamePhase.MOVEMENT:
+			deployment_panel.hide()
 			squad_panel.show()
 			update_squad_list()
 			print("Showing squad panel with ", game.active_squads[game.current_player].size(), " squads")
 		GameEnums.GamePhase.SHOOTING:
+			deployment_panel.hide()
 			squad_panel.hide()
 		GameEnums.GamePhase.MELEE:
+			deployment_panel.hide()
 			squad_panel.hide()
 
 func add_squad_to_active(squad: Array, player: int):

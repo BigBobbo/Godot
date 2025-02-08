@@ -21,6 +21,7 @@ var has_fought: bool = false
 var owner_player: int
 var is_destroyed: bool = false
 var squad_id: int = -1  # To identify which squad this unit belongs to
+const COHERENCY_DISTANCE: int = 2  # Maximum distance between squad members
 
 @onready var color_rect = $ColorRect
 @onready var selection_highlight = $SelectionHighlight
@@ -114,3 +115,21 @@ func can_be_targeted() -> bool:
 
 func can_be_targeted_by(attacker_player: int) -> bool:
 	return not is_destroyed and owner_player != attacker_player
+
+func is_in_coherency(grid: Grid, squad: Array) -> bool:
+	if squad.size() <= 1:  # Single model units are always in coherency
+		return true
+	
+	var my_pos = grid.get_unit_cell_pos(self)
+	if my_pos == Vector2i(-1, -1):
+		return false
+	
+	# Check if this unit is within coherency distance of any other squad member
+	for other_unit in squad:
+		if other_unit == self:
+			continue
+		var other_pos = grid.get_unit_cell_pos(other_unit)
+		if other_pos != Vector2i(-1, -1) and grid.get_distance(my_pos, other_pos) <= COHERENCY_DISTANCE:
+			return true
+	
+	return false

@@ -56,7 +56,8 @@ A simplified tactical game based on Warhammer 40K rules, implemented in Godot 4.
 1. Show unit that is about to be deployed
 2. Introduce the concept of units as opposed to models
 3. Destroyed units should be marked as such but remain on the battlefield until the end of the turn
-4. Add a way to select a unit to deploy
+4. There is no actual restiction to what squad is moving
+5. Advance rules are not implemented
 
 
 ## Current Phase Implementation Status
