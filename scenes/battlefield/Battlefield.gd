@@ -10,6 +10,7 @@ var selected_unit: Unit = null
 var selected_squad: Array = []  # Currently selected squad
 var squad_original_positions: Dictionary = {}  # Stores original positions for each unit in squad
 var squad_valid_moves: Dictionary = {}  # Stores valid moves for each unit in squad
+var coherency_warning_highlights: Array[Node2D] = []  # Highlights for units out of coherency
 var movement_highlights: Array[Node2D] = []
 var shooting_highlights: Array[Node2D] = []
 var range_indicator: Node2D = null
@@ -128,6 +129,9 @@ func clear_highlights():
 	for highlight in shooting_highlights:
 		highlight.queue_free()
 	shooting_highlights.clear()
+	for highlight in coherency_warning_highlights:
+		highlight.queue_free()
+	coherency_warning_highlights.clear()
 	if range_indicator:
 		range_indicator.queue_free()
 		range_indicator = null
@@ -169,6 +173,8 @@ func handle_movement_click(grid_pos: Vector2i):
 				for unit in selected_squad:
 					if squad_valid_moves.has(unit):
 						highlight_valid_moves(unit)
+				# Update coherency highlights after movement
+				update_coherency_highlights()
 
 func get_units_in_range(from_pos: Vector2i, range: int, enemy_only: bool = false, owner: int = -1) -> Array:
 	print("\nGetting units in range:")
@@ -405,6 +411,8 @@ func select_squad(squad: Array):
 	for unit in squad:
 		if unit.can_move():
 			highlight_valid_moves(unit)
+	# Show initial coherency state
+	update_coherency_highlights()
 
 func _on_finish_squad_pressed():
 	# Check coherency for all units in the squad
@@ -470,3 +478,30 @@ func next_phase():
 func add_squad_to_active(squad: Array, player: int):
 	game.active_squads[player].append(squad)
 	print("Added squad to active squads. Total squads:", game.active_squads[player].size())
+
+func create_coherency_warning_highlight() -> Node2D:
+	var highlight = Polygon2D.new()
+	highlight.polygon = PackedVector2Array([
+		Vector2(-16, -16),
+		Vector2(16, -16),
+		Vector2(16, 16),
+		Vector2(-16, 16)
+	])
+	highlight.color = Color(1, 0.5, 0, 0.3)  # Semi-transparent orange
+	return highlight
+
+func update_coherency_highlights():
+	# Clear existing coherency highlights
+	for highlight in coherency_warning_highlights:
+		highlight.queue_free()
+	coherency_warning_highlights.clear()
+	
+	# Check each unit in the squad
+	if not selected_squad.is_empty():
+		for unit in selected_squad:
+			if not unit.is_in_coherency(grid, selected_squad):
+				var highlight = create_coherency_warning_highlight()
+				var unit_pos = grid.get_unit_cell_pos(unit)
+				highlight.position = grid.grid_to_world(unit_pos)
+				coherency_warning_highlights.append(highlight)
+				add_child(highlight)
