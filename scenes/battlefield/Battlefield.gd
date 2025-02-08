@@ -160,16 +160,15 @@ func handle_movement_click(grid_pos: Vector2i):
 			if not selected_squad.is_empty() and selected_squad.has(clicked_unit) and squad_valid_moves.has(clicked_unit):
 				select_unit(clicked_unit)
 	elif selected_unit and squad_valid_moves.has(selected_unit):
-		if squad_valid_moves.has(selected_unit):
-			var valid_moves = squad_valid_moves[selected_unit]
-			if grid_pos in valid_moves:
-				var from_pos = grid.get_unit_cell_pos(selected_unit)
-				if grid.move_unit(selected_unit, from_pos, grid_pos):
-					clear_selection()
-					# Highlight other moveable units in the squad
-					for unit in selected_squad:
-						if squad_valid_moves.has(unit):
-							highlight_valid_moves(unit)
+		var valid_moves = squad_valid_moves[selected_unit]
+		if grid_pos in valid_moves:
+			var from_pos = grid.get_unit_cell_pos(selected_unit)
+			if grid.move_unit(selected_unit, from_pos, grid_pos):
+				clear_selection()
+				# Highlight other moveable units in the squad
+				for unit in selected_squad:
+					if squad_valid_moves.has(unit):
+						highlight_valid_moves(unit)
 
 func get_units_in_range(from_pos: Vector2i, range: int, enemy_only: bool = false, owner: int = -1) -> Array:
 	print("\nGetting units in range:")
