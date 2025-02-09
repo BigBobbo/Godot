@@ -35,6 +35,7 @@ func _ready():
 	create_deployment_zones()
 	unit_stats = $CanvasLayer/UnitStats
 	deployment_panel = $CanvasLayer/DeploymentPanel
+	deployment_panel.squad_deployment_finished.connect(_on_squad_deployment_finished)
 	squad_panel = $CanvasLayer/SquadPanel
 	squad_list = $CanvasLayer/SquadPanel/VBoxContainer/SquadList
 	squad_list.item_selected.connect(_on_squad_selected)
@@ -505,3 +506,8 @@ func update_coherency_highlights():
 				highlight.position = grid.grid_to_world(unit_pos)
 				coherency_warning_highlights.append(highlight)
 				add_child(highlight)
+
+func _on_squad_deployment_finished(squad_id: int):
+	print("Battlefield received squad_deployment_finished signal")
+	# Forward the signal to the game
+	game._on_squad_deployment_finished(squad_id)

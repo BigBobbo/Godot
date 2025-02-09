@@ -32,6 +32,21 @@ func setup_game():
 	set_army_ownership(player1_army, GameEnums.PlayerTurn.PLAYER_1)
 	set_army_ownership(player2_army, GameEnums.PlayerTurn.PLAYER_2)
 	
+	# Verify army ownership
+	print("\nVerifying Player 1 army ownership:")
+	for squad in player1_army:
+		for unit in squad:
+			if unit.owner_player != GameEnums.PlayerTurn.PLAYER_1:
+				push_error("Player 1 unit has wrong owner!")
+			print("P1 unit owner:", unit.owner_player)
+	
+	print("\nVerifying Player 2 army ownership:")
+	for squad in player2_army:
+		for unit in squad:
+			if unit.owner_player != GameEnums.PlayerTurn.PLAYER_2:
+				push_error("Player 2 unit has wrong owner!")
+			print("P2 unit owner:", unit.owner_player)
+	
 	# Keep armies as squads for deployment
 	deployment_units_remaining[GameEnums.PlayerTurn.PLAYER_1] = player1_army
 	deployment_units_remaining[GameEnums.PlayerTurn.PLAYER_2] = player2_army
@@ -112,6 +127,13 @@ func get_deployable_units() -> Array:  # Returns Array of Array[Unit] (squads)
 		return []
 	print("Getting deployable units for player:", current_player)
 	var player_squads = deployment_units_remaining[current_player]
+	# Debug print each squad's first unit's owner
+	for squad in player_squads:
+		if not squad.is_empty():
+			print("Squad owner:", squad[0].owner_player, " Expected owner:", current_player)
+			# Verify squad ownership
+			if squad[0].owner_player != current_player:
+				push_error("Squad ownership mismatch!")
 	print("Available squads:", player_squads.size())
 	if player_squads.is_empty():
 		return []
@@ -120,34 +142,27 @@ func get_deployable_units() -> Array:  # Returns Array of Array[Unit] (squads)
 	return player_squads
 
 func deploy_unit(unit: Unit, grid_pos: Vector2i) -> bool:
+	# Verify unit ownership
+	if unit.owner_player != current_player:
+		print("ERROR: Attempting to deploy unit owned by player", unit.owner_player, 
+			" during player", current_player, "'s turn")
+		return false
+		
 	if not battlefield.is_in_deployment_zone(grid_pos, current_player):
 		return false
 		
 	print("Attempting to deploy:", unit.get_unit_type(), "for player:", current_player)
+	# Check if unit is already deployed and remove it from its current position
+	var current_pos = battlefield.grid.get_unit_cell_pos(unit)
+	if current_pos != Vector2i(-1, -1):
+		battlefield.grid.remove_unit(current_pos)
+	
 	if battlefield.grid.place_unit(unit, grid_pos):
 		var current_squad = battlefield.deployment_panel.get_selected_squad()
-		print("Deploying unit from squad of size:", current_squad.size())
-		current_squad.erase(unit)
-		print("Squad size after removal:", current_squad.size())
-		# Only switch player when the entire squad is deployed
-		if current_squad.is_empty():
-			print("Squad empty, removing from deployment units")
-			# Remove the squad/unit from deployment_units_remaining
-			deployment_units_remaining[current_player].erase(current_squad)
-			# Add the squad to active squads when fully deployed
-			# Create a new squad with all deployed units that share the same squad_id
-			var deployed_squad = []
-			for pos in battlefield.grid.cells:
-				var deployed_unit = battlefield.grid.cells[pos]
-				if deployed_unit is Unit and deployed_unit.squad_id == unit.squad_id:
-					deployed_squad.append(deployed_unit)
-			active_squads[current_player].append(deployed_squad)
-			print("Added deployed squad of size:", deployed_squad.size())
-			print("Squads remaining for player", current_player, ":", deployment_units_remaining[current_player].size())
-			switch_player()
-			# Update the deployment panel with the next squad
-			battlefield.update_deployment_preview()
-		battlefield.add_child(unit)
+		# Track the deployed unit
+		battlefield.deployment_panel.add_deployed_unit(unit, grid_pos)
+		if not is_instance_valid(unit.get_parent()):
+			battlefield.add_child(unit)
 		return true
 	return false
 
@@ -197,3 +212,27 @@ func get_next_squad_id() -> int:
 
 func add_squad_to_active(squad: Array, player: int):
 	active_squads[player].append(squad)
+
+func _on_squad_deployment_finished(squad_id: int):
+	print("Game received squad_deployment_finished signal for squad_id:", squad_id)
+	# Find and remove the squad from deployment_units_remaining
+	for squad in deployment_units_remaining[current_player]:
+		if squad[0].squad_id == squad_id:
+			print("Found squad to remove from deployment_units_remaining")
+			deployment_units_remaining[current_player].erase(squad)
+			break
+	
+	# Create a new squad with all deployed units that share the squad_id
+	var deployed_squad = []
+	for pos in battlefield.grid.cells:
+		var deployed_unit = battlefield.grid.cells[pos]
+		if deployed_unit is Unit and deployed_unit.squad_id == squad_id:
+			deployed_squad.append(deployed_unit)
+	
+	print("Created deployed squad with size:", deployed_squad.size())
+	active_squads[current_player].append(deployed_squad)
+	print("Added deployed squad of size:", deployed_squad.size())
+	print("Squads remaining for player", current_player, ":", deployment_units_remaining[current_player].size())
+	
+	switch_player()
+	battlefield.update_deployment_preview()

@@ -86,4 +86,14 @@ text = "Wounds:"
 
 [node name="Wounds" type="Label" parent="VBoxContainer/SelectedUnitInfo"]
 layout_mode = 2
-text = "-" 
+text = "-"
+
+[node name="HSeparator2" type="HSeparator" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="FinishSquadDeploymentButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Finish Squad Deployment"
+disabled = true
+
+[connection signal="pressed" from="VBoxContainer/FinishSquadDeploymentButton" to="." method="_on_finish_squad_deployment"] 
