@@ -36,20 +36,37 @@ func is_within_bounds(grid_pos: Vector2i) -> bool:
 	return grid_pos.x >= 0 and grid_pos.x < width and grid_pos.y >= 0 and grid_pos.y < height
 
 func is_cell_empty(grid_pos: Vector2i) -> bool:
+	# Check if any of the cells are occupied
 	return not cells.has(grid_pos)
 
+func can_place_unit(unit: Unit, base_pos: Vector2i) -> bool:
+	# Check if all required cells are within bounds and empty
+	for offset in unit.occupied_cells:
+		var check_pos = base_pos + offset
+		if not is_within_bounds(check_pos) or not is_cell_empty(check_pos):
+			return false
+	return true
+
 func place_unit(unit: Unit, grid_pos: Vector2i) -> bool:
-	if not is_within_bounds(grid_pos) or not is_cell_empty(grid_pos):
+	if not can_place_unit(unit, grid_pos):
 		return false
 	
-	cells[grid_pos] = unit
+	# Place unit in all its cells
+	for offset in unit.occupied_cells:
+		var pos = grid_pos + offset
+		cells[pos] = unit
+	
 	unit.position = grid_to_world(grid_pos)
 	return true
 
 func remove_unit(grid_pos: Vector2i) -> Unit:
-	if cells.has(grid_pos):
-		var unit = cells[grid_pos]
-		cells.erase(grid_pos)
+	var unit = cells.get(grid_pos)
+	if unit:
+		# Remove unit from all its occupied cells
+		for offset in unit.occupied_cells:
+			var pos = grid_pos + offset
+			if cells.get(pos) == unit:
+				cells.erase(pos)
 		return unit
 	return null
 
@@ -101,8 +118,18 @@ func move_unit(unit: Unit, from_pos: Vector2i, to_pos: Vector2i) -> bool:
 func get_unit_cell_pos(unit: Unit) -> Vector2i:
 	for pos in cells:
 		if cells[pos] == unit:
-			return pos
-	return Vector2i(-1, -1)  # Invalid position if unit not found 
+			# Return the base position (leftmost cell for horizontal units)
+			for offset in unit.occupied_cells:
+				var check_pos = pos - offset
+				var is_base = true
+				for other_offset in unit.occupied_cells:
+					var other_pos = check_pos + other_offset
+					if cells.get(other_pos) != unit:
+						is_base = false
+						break
+				if is_base:
+					return check_pos
+	return Vector2i(-1, -1)  # Invalid position if unit not found
 
 func has_line_of_sight(from_pos: Vector2i, to_pos: Vector2i) -> bool:
 	# Simple line of sight check - just checking if there are units in between

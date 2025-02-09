@@ -1,10 +1,22 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://scenes/units/Warboss.gd" id="1_warboss"]
-[ext_resource type="PackedScene" uid="uid://xxxx" path="res://scenes/units/Unit.tscn" id="1_unit"]
+[ext_resource type="PackedScene" path="res://scenes/units/Unit.tscn" id="1_unit"]
+[ext_resource type="Script" path="res://scenes/units/Warboss.gd" id="2_warboss"]
 
 [node name="Warboss" instance=ExtResource("1_unit")]
-script = ExtResource("1_warboss")
+script = ExtResource("2_warboss")
 
-[node name="ColorRect" parent="." index="0"]
-color = Color(0.6, 0.1, 0.1, 1.0)  # Darker red base color 
+[node name="SelectionHighlight" parent="." index="0"]
+polygon = PackedVector2Array(-14, -14, 46, -14, 46, 14, -14, 14)
+
+[node name="ColorRect" parent="." index="1"]
+offset_left = -14.0
+offset_right = 46.0
+
+[node name="UnitLabel" parent="." index="2"]
+offset_left = -30.0
+offset_right = 30.0
+
+[node name="HealthBar" parent="." index="3"]
+offset_left = -30.0
+offset_right = 30.0 

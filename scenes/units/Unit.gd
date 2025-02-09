@@ -2,6 +2,10 @@ extends Node2D
 
 class_name Unit
 
+# Unit Size and Shape
+var size: Vector2i = Vector2i(1, 1)  # Default size is 1x1
+var occupied_cells: Array[Vector2i] = []  # Cells this unit occupies relative to its base position
+
 # Unit Stats
 var movement: int
 var weapon_skill: int
