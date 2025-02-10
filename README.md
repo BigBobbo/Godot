@@ -44,6 +44,16 @@ A simplified tactical game based on Warhammer 40K rules, implemented in Godot 4.
 5. Fix unit stats visibility
 6. Fix unit stats position
 7. Range circle for shooting does not align with actual range
+8. Add way to add differnt cell sizes for different model types easily
+9. Be able to rotate models
+10. Ensure measurements are taken from outter edge of models
+11. During deployment phase, show the models that are about to be deployed and be able to select specific ones
+12. add terrain to the battlefield
+13. Add alternate controls i.e phone or steam deck
+14. Try actual cell sizes, so much bigger board and models
+15. Add army list builder
+16. Add save/load game state
+17. add option to advance a squad
 
 ### Polish
 1. Add better unit visuals
@@ -51,13 +61,6 @@ A simplified tactical game based on Warhammer 40K rules, implemented in Godot 4.
 3. Add turn/phase indicators
 4. Add hover tooltips for units
 5. Add battle statistics tracking
-
-### To Be Triaged
-1. Show unit that is about to be deployed
-2. Introduce the concept of units as opposed to models
-3. Destroyed units should be marked as such but remain on the battlefield until the end of the turn
-4. There is no actual restiction to what squad is moving
-5. Advance rules are not implemented
 
 
 ## Current Phase Implementation Status

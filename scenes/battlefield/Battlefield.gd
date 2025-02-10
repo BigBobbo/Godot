@@ -13,6 +13,8 @@ var squad_valid_moves: Dictionary = {}  # Stores valid moves for each unit in sq
 var coherency_warning_highlights: Array[Node2D] = []  # Highlights for units out of coherency
 var movement_highlights: Array[Node2D] = []
 var shooting_highlights: Array[Node2D] = []
+var charge_highlights: Array[Node2D] = []
+var charge_target: Unit = null
 var range_indicator: Node2D = null
 var deployment_highlights: Array[Node2D] = []
 var deployment_preview: Unit = null  # Ghost unit showing what will be deployed
@@ -75,6 +77,17 @@ func create_deployment_highlight(zone: Rect2i, color: Color) -> Node2D:
 	highlight.color = color
 	return highlight
 
+func create_highlight(color: Color) -> Node2D:
+	var highlight = Polygon2D.new()
+	highlight.polygon = PackedVector2Array([
+		Vector2(-16, -16),
+		Vector2(16, -16),
+		Vector2(16, 16),
+		Vector2(-16, 16)
+	])
+	highlight.color = color
+	return highlight
+
 func _input(event):
 	if event is InputEventMouseButton and event.pressed:
 		var grid_pos = grid.world_to_grid(get_local_mouse_position())
@@ -91,6 +104,12 @@ func handle_cell_click(grid_pos: Vector2i):
 			handle_movement_click(grid_pos)
 		GameEnums.GamePhase.SHOOTING:
 			handle_shooting_click(grid_pos)
+		GameEnums.GamePhase.CHARGE:
+			handle_charge_click(grid_pos)
+		GameEnums.GamePhase.FIGHT:
+			handle_fight_click(grid_pos)
+		GameEnums.GamePhase.MORALE:
+			handle_morale_click(grid_pos)
 		# Other phases will be implemented later
 
 func handle_deployment_click(grid_pos: Vector2i):
@@ -133,6 +152,9 @@ func clear_highlights():
 	for highlight in coherency_warning_highlights:
 		highlight.queue_free()
 	coherency_warning_highlights.clear()
+	for highlight in charge_highlights:
+		highlight.queue_free()
+	charge_highlights.clear()
 	if range_indicator:
 		range_indicator.queue_free()
 		range_indicator = null
@@ -292,15 +314,7 @@ func shoot_at_target(shooter: Unit, target: Unit):
 	clear_selection()
 
 func create_movement_highlight() -> Node2D:
-	var highlight = Polygon2D.new()
-	highlight.polygon = PackedVector2Array([
-		Vector2(-14, -14),
-		Vector2(14, -14),
-		Vector2(14, 14),
-		Vector2(-14, 14)
-	])
-	highlight.color = Color(0, 1, 0, 0.3)  # Semi-transparent green
-	return highlight
+	return create_highlight(Color(0, 1, 0, 0.3))  # Semi-transparent green
 
 func create_target_highlight() -> Node2D:
 	var highlight = Polygon2D.new()
@@ -375,45 +389,94 @@ func _process(_delta):
 		unit_stats.visible = false
 
 func update_deployment_preview():
-	if not game:
-		return
-	if game.current_phase == GameEnums.GamePhase.DEPLOYMENT:
-		deployment_panel.visible = true
-		deployment_panel.update_units(game.get_deployable_units())
-		# Clear existing preview if no units left to deploy
-		if deployment_preview and game.get_deployable_units().is_empty():
-			deployment_preview.queue_free()
-			deployment_preview = null
-	else:
-		deployment_panel.visible = false
+	if game.current_phase != GameEnums.GamePhase.DEPLOYMENT:
+		deployment_panel.hide()
 		if deployment_preview:
 			deployment_preview.queue_free()
 			deployment_preview = null
+		return
+		
+	var deployable_units = game.get_deployable_units()
+	if deployable_units.is_empty():
+		if deployment_preview:
+			deployment_preview.queue_free()
+			deployment_preview = null
+		deployment_panel.hide()
+		squad_panel.show()
+		update_squad_list()
+	else:
+		deployment_panel.show()  # Make sure panel is visible
+		deployment_panel.update_units(deployable_units)
 
 func _on_deployment_unit_selected(unit: Unit):
 	if deployment_preview:
 		deployment_preview.queue_free()
-	deployment_preview = unit.duplicate()
-	deployment_preview.modulate.a = 0.5
-	add_child(deployment_preview)
+	if unit:
+		deployment_preview = unit.duplicate()
+		deployment_preview.modulate.a = 0.5  # Make it semi-transparent
+		add_child(deployment_preview)
 
 func select_squad(squad: Array):
 	selected_squad = squad
 	finish_squad_button.show()
-	# Store original positions and calculate valid moves for each unit in squad
 	squad_original_positions.clear()
 	squad_valid_moves.clear()
-	for unit in squad:
-		var pos = grid.get_unit_cell_pos(unit)
-		squad_original_positions[unit] = pos
-		if unit.can_move():
-			squad_valid_moves[unit] = grid.get_cells_in_range(pos, unit.movement, true)
-	# Highlight all moveable units in the squad
-	for unit in squad:
-		if unit.can_move():
-			highlight_valid_moves(unit)
-	# Show initial coherency state
-	update_coherency_highlights()
+	
+	match game.current_phase:
+		GameEnums.GamePhase.MOVEMENT:
+			for unit in squad:
+				var pos = grid.get_unit_cell_pos(unit)
+				squad_original_positions[unit] = pos
+				if unit.can_move():
+					squad_valid_moves[unit] = grid.get_cells_in_range(pos, unit.movement, true)  # true for empty_only
+			# Highlight all moveable units in the squad
+			for unit in squad:
+				if unit.can_move():
+					highlight_valid_moves(unit)
+			# Show initial coherency state
+			update_coherency_highlights()
+		GameEnums.GamePhase.CHARGE:
+			clear_highlights()
+			# Highlight charge range for entire squad
+			var has_chargeable_units = false
+			for unit in squad:
+				if unit.can_charge():
+					has_chargeable_units = true
+					var unit_pos = grid.get_unit_cell_pos(unit)
+					print("Adding charge range indicator for unit at: ", unit_pos)
+					
+					# Add range indicator
+					var range_circle = RangeIndicator.new(unit.CHARGE_RANGE * Grid.CELL_SIZE)
+					range_circle.position = grid.grid_to_world(unit_pos)
+					add_child(range_circle)
+					movement_highlights.append(range_circle)
+					
+					# Find enemy units in range
+					var targets = grid.get_units_in_range(unit_pos, unit.CHARGE_RANGE, true, game.current_player)
+					print("Found ", targets.size(), " potential targets in range")
+					for target in targets:
+						var target_pos = grid.get_unit_cell_pos(target)
+						if grid.has_line_of_sight(unit_pos, target_pos):
+							print("Highlighting target at: ", target_pos)
+							var highlight = create_highlight(Color(1, 0, 0, 0.3))
+							highlight.position = grid.grid_to_world(target_pos)
+							movement_highlights.append(highlight)
+							add_child(highlight)
+			
+			if not has_chargeable_units:
+				print("No units can charge in this squad")
+				combat_log.add_message("No units in this squad can charge!")
+				return
+
+			# Show which units can charge
+			for unit in squad:
+				if unit.can_charge():
+					print("Highlighting chargeable unit")
+					var unit_highlight = create_highlight(Color(0, 1, 0, 0.3))
+					unit_highlight.position = grid.grid_to_world(grid.get_unit_cell_pos(unit))
+					movement_highlights.append(unit_highlight)
+					add_child(unit_highlight)
+			combat_log.add_message("Click an enemy unit within range to attempt a charge")
 
 func _on_finish_squad_pressed():
 	# Check coherency for all units in the squad
@@ -468,12 +531,20 @@ func next_phase():
 			deployment_panel.hide()
 			squad_panel.show()
 			update_squad_list()
-			print("Showing squad panel with ", game.active_squads[game.current_player].size(), " squads")
 		GameEnums.GamePhase.SHOOTING:
 			deployment_panel.hide()
 			squad_panel.hide()
-		GameEnums.GamePhase.MELEE:
+		GameEnums.GamePhase.CHARGE:
 			deployment_panel.hide()
+			squad_panel.show()
+			update_squad_list()
+			combat_log.add_message("Charge Phase: Select a squad to make charges")
+			clear_selection()
+		GameEnums.GamePhase.FIGHT:
+			clear_selection()
+			squad_panel.hide()
+		GameEnums.GamePhase.MORALE:
+			clear_selection()
 			squad_panel.hide()
 
 func add_squad_to_active(squad: Array, player: int):
@@ -511,3 +582,164 @@ func _on_squad_deployment_finished(squad_id: int):
 	print("Battlefield received squad_deployment_finished signal")
 	# Forward the signal to the game
 	game._on_squad_deployment_finished(squad_id)
+
+func handle_charge_click(grid_pos: Vector2i):
+	if not grid.is_within_bounds(grid_pos):
+		return
+		
+	var clicked_unit = grid.cells.get(grid_pos)
+	if clicked_unit is Unit:
+		# If clicking an enemy unit and we have a squad selected
+		if clicked_unit.owner_player != game.current_player and not selected_squad.is_empty():
+			# Find closest charging unit to target
+			var min_distance = 999
+			var closest_charger = null
+			var target_pos = grid.get_unit_cell_pos(clicked_unit)
+			
+			for unit in selected_squad:
+				if unit.can_charge():
+					var charger_pos = grid.get_unit_cell_pos(unit)
+					# Calculate actual distance for charge range
+					var dx = target_pos.x - charger_pos.x
+					var dy = target_pos.y - charger_pos.y
+					var distance = sqrt(dx * dx + dy * dy)
+					print("Unit at %s, distance to target: %f" % [charger_pos, distance])
+					if distance <= unit.CHARGE_RANGE and distance < min_distance:
+						min_distance = distance
+						closest_charger = unit
+			
+			if closest_charger:
+				combat_log.add_message("%s attempting to charge %s..." % [closest_charger.get_unit_type(), clicked_unit.get_unit_type()], Color.YELLOW)
+				combat_log.add_message("Distance to target: %.1f cells" % min_distance)
+				var charge_roll = closest_charger.roll_charge()
+				combat_log.add_message("Charge roll (2D6): %d cells (needed %d+)" % [charge_roll, ceil(min_distance)], 
+					Color.GREEN if charge_roll >= ceil(min_distance) else Color.RED)
+				
+				if charge_roll >= ceil(min_distance):
+					combat_log.add_message("Charge successful! %s made it into combat!" % closest_charger.get_unit_type(), Color.GREEN)
+					combat_log.add_message("Move charging unit up to %d cells to get into base contact" % charge_roll)
+					# Mark valid charge move cells
+					var valid_charge_cells = []
+					var charge_cells = grid.get_cells_in_range(grid.get_unit_cell_pos(closest_charger), charge_roll, true)
+					for cell in charge_cells:
+						if grid.get_distance(cell, target_pos) <= 1:  # Engagement range
+							valid_charge_cells.append(cell)
+					
+					# Highlight valid charge moves
+					clear_highlights()
+					for cell in valid_charge_cells:
+						var highlight = create_highlight(Color(0, 1, 0, 0.3))
+						highlight.position = grid.grid_to_world(cell)
+						movement_highlights.append(highlight)
+						add_child(highlight)
+					
+					# Store charge information for move phase
+					charge_target = clicked_unit
+					squad_valid_moves[closest_charger] = valid_charge_cells
+				else:
+					combat_log.add_message("Charge failed! Roll of %d cells was not enough to reach the target." % charge_roll, Color.RED)
+					combat_log.add_message("The squad cannot charge again this turn.")
+					# Mark all units in squad as having attempted charge
+					for unit in selected_squad:
+						unit.has_charged = true
+					clear_selection()
+			else:
+				combat_log.add_message("No units in the squad are within %d cells to attempt a charge!" % Unit.CHARGE_RANGE, Color.RED)
+		
+		# If clicking a valid charge move location
+		elif charge_target and selected_unit and squad_valid_moves.has(selected_unit):
+			var valid_moves = squad_valid_moves[selected_unit]
+			if grid_pos in valid_moves:
+				var from_pos = grid.get_unit_cell_pos(selected_unit)
+				if grid.move_unit(selected_unit, from_pos, grid_pos):
+					selected_unit.has_charged = true
+					selected_unit.is_in_melee = true
+					charge_target.is_in_melee = true
+					clear_selection()
+					# Allow moving other units in the charging squad
+					highlight_remaining_charge_moves()
+		
+		# ... remove old charge code ...
+
+func highlight_remaining_charge_moves():
+	clear_highlights()
+	var any_moves = false
+	for unit in selected_squad:
+		if not unit.has_charged and unit.can_charge():
+			any_moves = true
+			var highlight = create_highlight(Color(0, 1, 0, 0.3))
+			highlight.position = grid.grid_to_world(grid.get_unit_cell_pos(unit))
+			movement_highlights.append(highlight)
+			add_child(highlight)
+	
+	if not any_moves:
+		clear_selection()
+		charge_target = null
+
+func handle_fight_click(grid_pos: Vector2i):
+	if not grid.is_within_bounds(grid_pos):
+		return
+		
+	var clicked_unit = grid.cells.get(grid_pos)
+	if clicked_unit is Unit:
+		if clicked_unit.owner_player == game.current_player and clicked_unit.is_in_melee and not clicked_unit.has_fought:
+			select_unit(clicked_unit)
+			# Highlight valid fight targets (units in engagement range)
+			highlight_fight_targets(clicked_unit)
+		elif selected_unit and clicked_unit.can_be_targeted_by(game.current_player):
+			# Resolve melee combat
+			resolve_melee_combat(selected_unit, clicked_unit)
+			clear_selection()
+
+func handle_morale_click(grid_pos: Vector2i):
+	# For now, morale phase is automatic
+	pass
+
+func highlight_fight_targets(unit: Unit):
+	clear_highlights()
+	var unit_pos = grid.get_unit_cell_pos(unit)
+	var cells_in_range = grid.get_cells_in_range(unit_pos, unit.ENGAGEMENT_RANGE, false)  # false for empty_only
+	var potential_targets = []
+	for cell in cells_in_range:
+		var target = grid.cells.get(cell)
+		if target is Unit and target.owner_player != unit.owner_player:
+			potential_targets.append(target)
+	
+	for target in potential_targets:
+		if target.can_be_targeted_by(unit.owner_player) and target.is_in_melee:
+			var target_pos = grid.get_unit_cell_pos(target)
+			var highlight = create_highlight(Color(1, 0, 0, 0.3))
+			highlight.position = grid.grid_to_world(target_pos)
+			charge_highlights.append(highlight)
+			add_child(highlight)
+
+func resolve_melee_combat(attacker: Unit, defender: Unit):
+	combat_log.add_message("%s fights %s in melee!" % [attacker.get_unit_type(), defender.get_unit_type()])
+	
+	# Roll attacks
+	var num_hits = 0
+	for i in range(attacker.attacks):
+		if attacker.roll_to_hit(true):  # true for melee
+			num_hits += 1
+	combat_log.add_message("Hits: %d/%d" % [num_hits, attacker.attacks])
+	
+	# Roll wounds
+	var num_wounds = 0
+	for i in range(num_hits):
+		if attacker.roll_to_wound(defender.toughness):
+			num_wounds += 1
+	combat_log.add_message("Wounds: %d/%d" % [num_wounds, num_hits])
+	
+	# Roll saves
+	var damage = 0
+	for i in range(num_wounds):
+		if not defender.roll_armor_save():
+			damage += 1
+	
+	if damage > 0:
+		defender.take_damage(damage)
+		combat_log.add_message("%s takes %d damage!" % [defender.get_unit_type(), damage])
+	else:
+		combat_log.add_message("No damage dealt!")
+	
+	attacker.has_fought = true

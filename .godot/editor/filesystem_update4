@@ -1,1 +1,5 @@
 res://scenes/game/Game.tscn
+res://scenes/ui/GameUI.gd
+res://scenes/game/Game.gd
+res://scenes/battlefield/Battlefield.gd
+res://scenes/units/Unit.gd

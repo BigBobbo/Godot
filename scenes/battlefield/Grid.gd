@@ -76,29 +76,39 @@ func get_cell_center(grid_pos: Vector2i) -> Vector2:
 		grid_pos.y * CELL_SIZE + CELL_SIZE/2
 	)
 
-func get_cells_in_range(from_pos: Vector2i, range: int, for_movement: bool = true) -> Array:
-	var cells_in_range = []
-	for x in range(-range, range + 1):
-		for y in range(-range, range + 1):
+func get_cells_in_range(from_pos: Vector2i, range_value: int, empty_only: bool) -> Array:
+	var cells = []
+	# Check all cells within a square area
+	for x in range(-range_value, range_value + 1):
+		for y in range(-range_value, range_value + 1):
 			var check_pos = Vector2i(from_pos.x + x, from_pos.y + y)
-			var distance = abs(x) + abs(y)  # Manhattan distance
-			if is_within_bounds(check_pos) and distance <= range:
-				# For movement, only include empty cells
-				# For shooting, include all cells in range
-				if not for_movement or is_cell_empty(check_pos):
-					cells_in_range.append(check_pos)
-	return cells_in_range
+			# For charge range, use actual distance instead of Manhattan distance
+			var distance = sqrt(x*x + y*y)  # Use actual distance for charge range
+			if is_within_bounds(check_pos) and distance <= range_value:
+				if empty_only:
+					if is_cell_empty(check_pos):
+						cells.append(check_pos)
+				else:
+					cells.append(check_pos)
+	return cells
 
 func get_distance(from_pos: Vector2i, to_pos: Vector2i) -> int:
 	return abs(to_pos.x - from_pos.x) + abs(to_pos.y - from_pos.y)
 
 func get_units_in_range(from_pos: Vector2i, range: int, enemy_only: bool = false, owner: int = -1) -> Array:
 	var units = []
-	var cells_in_range = get_cells_in_range(from_pos, range)
+	var cells_in_range = get_cells_in_range(from_pos, range, false)  # false for empty_only
 	
 	for cell_pos in cells_in_range:
 		if cells.has(cell_pos):
 			var unit = cells[cell_pos]
+			# Calculate actual distance for range check
+			var dx = cell_pos.x - from_pos.x
+			var dy = cell_pos.y - from_pos.y
+			var distance = sqrt(dx * dx + dy * dy)
+			if distance > range:
+				continue
+				
 			if enemy_only and unit.owner_player != owner:
 				units.append(unit)
 			elif not enemy_only:
@@ -154,3 +164,21 @@ func has_line_of_sight(from_pos: Vector2i, to_pos: Vector2i) -> bool:
 			return false
 	
 	return true 
+
+func get_path_to_engagement(from_pos: Vector2i, to_pos: Vector2i) -> Array:
+	var path = []
+	var best_distance = 999
+	
+	# Check all cells around the target
+	for x in range(-1, 2):
+		for y in range(-1, 2):
+			var check_pos = Vector2i(to_pos.x + x, to_pos.y + y)
+			if is_within_bounds(check_pos) and is_cell_empty(check_pos):
+				var dist_to_target = get_distance(check_pos, to_pos)
+				if dist_to_target <= 1:  # Within engagement range
+					var dist_from_start = get_distance(from_pos, check_pos)
+					if dist_from_start < best_distance:
+						best_distance = dist_from_start
+						path = [check_pos]
+	
+	return path 

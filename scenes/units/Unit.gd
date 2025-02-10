@@ -21,11 +21,15 @@ var attacks: int
 var current_wounds: int
 var has_moved: bool = false
 var has_shot: bool = false
+var has_charged: bool = false
 var has_fought: bool = false
+var is_in_melee: bool = false
 var owner_player: int
 var is_destroyed: bool = false
 var squad_id: int = -1  # To identify which squad this unit belongs to
 const COHERENCY_DISTANCE: int = 2  # Maximum distance between squad members
+const CHARGE_RANGE: int = 12  # Maximum cells a unit can charge
+const ENGAGEMENT_RANGE: int = 1
 
 @onready var color_rect = $ColorRect
 @onready var selection_highlight = $SelectionHighlight
@@ -67,7 +71,9 @@ func can_fight() -> bool:
 func reset_actions():
 	has_moved = false
 	has_shot = false
+	has_charged = false
 	has_fought = false
+	is_in_melee = false
 
 func roll_dice() -> int:
 	return randi() % 6 + 1
@@ -137,3 +143,9 @@ func is_in_coherency(grid: Grid, squad: Array) -> bool:
 			return true
 	
 	return false
+
+func can_charge() -> bool:
+	return not has_charged and not is_destroyed # and not has_shot
+
+func roll_charge() -> int:
+	return roll_dice() + (3* roll_dice())  # 2D6

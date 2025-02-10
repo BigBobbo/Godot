@@ -59,17 +59,17 @@ func create_ork_army() -> Array:
 	var army = []
 	print("Creating army...")
 	# Create Warboss
-	var warboss_scene = load("res://scenes/units/Warboss.tscn")
-	if warboss_scene == null:
-		push_error("Failed to load Warboss scene")
-		return army
-	# Create Warboss squad (single model)
-	var warboss_squad = []
-	var warboss = warboss_scene.instantiate()
-	warboss.squad_id = get_next_squad_id()
-	warboss_squad.append(warboss)
-	army.append(warboss_squad)
-	print("Added warboss squad")
+	#var warboss_scene = load("res://scenes/units/Warboss.tscn")
+	#if warboss_scene == null:
+		#push_error("Failed to load Warboss scene")
+		#return army
+	## Create Warboss squad (single model)
+	#var warboss_squad = []
+	#var warboss = warboss_scene.instantiate()
+	#warboss.squad_id = get_next_squad_id()
+	#warboss_squad.append(warboss)
+	#army.append(warboss_squad)
+	#print("Added warboss squad")
 	
 	# Create two squads of Ork Boyz
 	for i in range(1):
@@ -104,9 +104,15 @@ func next_phase():
 			if current_player == GameEnums.PlayerTurn.PLAYER_2:
 				reset_unit_actions()
 		GameEnums.GamePhase.SHOOTING:
-			current_phase = GameEnums.GamePhase.MELEE
+			current_phase = GameEnums.GamePhase.CHARGE
 			battlefield.next_phase()  # Tell battlefield about phase change
-		GameEnums.GamePhase.MELEE:
+		GameEnums.GamePhase.CHARGE:
+			current_phase = GameEnums.GamePhase.FIGHT
+			battlefield.next_phase()
+		GameEnums.GamePhase.FIGHT:
+			current_phase = GameEnums.GamePhase.MORALE
+			battlefield.next_phase()
+		GameEnums.GamePhase.MORALE:
 			current_phase = GameEnums.GamePhase.MOVEMENT
 			if current_player == GameEnums.PlayerTurn.PLAYER_2:
 				remove_destroyed_units()  # Clean up at end of turn

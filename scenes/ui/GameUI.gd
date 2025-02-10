@@ -23,8 +23,12 @@ func update_labels():
 			phase_text += "Movement"
 		GameEnums.GamePhase.SHOOTING:
 			phase_text += "Shooting"
-		GameEnums.GamePhase.MELEE:
-			phase_text += "Melee"
+		GameEnums.GamePhase.CHARGE:
+			phase_text += "Charge"
+		GameEnums.GamePhase.FIGHT:
+			phase_text += "Fight"
+		GameEnums.GamePhase.MORALE:
+			phase_text += "Morale"
 	
 	var turn_text = "Turn: Player "
 	turn_text += "1" if game.current_player == GameEnums.PlayerTurn.PLAYER_1 else "2"
