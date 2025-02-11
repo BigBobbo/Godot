@@ -24,6 +24,7 @@ var has_shot: bool = false
 var has_charged: bool = false
 var has_fought: bool = false
 var is_in_melee: bool = false
+var last_charge_roll: int = 0  # Store the last successful charge roll
 var owner_player: int
 var is_destroyed: bool = false
 var squad_id: int = -1  # To identify which squad this unit belongs to
