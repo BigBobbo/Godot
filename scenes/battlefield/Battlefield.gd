@@ -479,6 +479,19 @@ func select_squad(squad: Array):
 			combat_log.add_message("Click an enemy unit within range to attempt a charge")
 
 func _on_finish_squad_pressed():
+	match game.current_phase:
+		GameEnums.GamePhase.MOVEMENT:
+			handle_finish_movement()
+		GameEnums.GamePhase.CHARGE:
+			handle_finish_charge()
+	
+	selected_squad = []
+	squad_original_positions.clear()
+	squad_valid_moves.clear()
+	clear_selection()
+	finish_squad_button.hide()
+
+func handle_finish_movement():
 	# Check coherency for all units in the squad
 	var all_coherent = true
 	for unit in selected_squad:
@@ -499,12 +512,32 @@ func _on_finish_squad_pressed():
 		# Mark all units in squad as moved only after confirming movement
 		for unit in selected_squad:
 			unit.has_moved = true
+
+func handle_finish_charge():
+	# Check if any units are in engagement range with the target
+	var any_in_combat = false
+	for unit in selected_squad:
+		if grid.get_distance(grid.get_unit_cell_pos(unit), grid.get_unit_cell_pos(charge_target)) <= 1:
+			any_in_combat = true
+			break
 	
-	selected_squad = []
-	squad_original_positions.clear()
-	squad_valid_moves.clear()
-	clear_selection()
-	finish_squad_button.hide()
+	if not any_in_combat:
+		# Revert all moved units in the squad to their original positions
+		for unit in selected_squad:
+			if squad_original_positions.has(unit):
+				var original_pos = squad_original_positions[unit]
+				var current_pos = grid.get_unit_cell_pos(unit)
+				grid.move_unit(unit, current_pos, original_pos)
+		combat_log.add_message("Charge failed - no models made it into combat!", Color.RED)
+		return
+	
+	# Mark all units in the squad as having charged
+	for unit in selected_squad:
+		unit.has_charged = true
+		if grid.get_distance(grid.get_unit_cell_pos(unit), grid.get_unit_cell_pos(charge_target)) <= 1:
+			unit.is_in_melee = true
+			charge_target.is_in_melee = true
+	combat_log.add_message("Charge complete!", Color.GREEN)
 
 func update_squad_list():
 	squad_list.clear()
@@ -594,11 +627,28 @@ func handle_charge_click(grid_pos: Vector2i):
 		if grid_pos in valid_moves:
 			var from_pos = grid.get_unit_cell_pos(selected_unit)
 			if grid.move_unit(selected_unit, from_pos, grid_pos):
-				selected_unit.has_charged = true  # Mark the unit as having charged
-				combat_log.add_message("%s moved %d cells" % [selected_unit.get_unit_type(), selected_unit.last_charge_roll])
-				clear_selection()
-				# Allow moving other units in the charging squad
-				highlight_remaining_charge_moves()
+				combat_log.add_message("%s repositioned" % selected_unit.get_unit_type())
+				# Update valid moves display for current unit
+				clear_highlights()
+				for move_pos in valid_moves:
+					var highlight = create_highlight(Color(0, 0.5, 0, 0.2))
+					highlight.position = grid.grid_to_world(move_pos)
+					movement_highlights.append(highlight)
+					add_child(highlight)
+				# Show movement range for this unit
+				var range_circle = RangeIndicator.new(selected_unit.last_charge_roll * Grid.CELL_SIZE)
+				range_circle.position = grid.grid_to_world(grid.get_unit_cell_pos(selected_unit))
+				add_child(range_circle)
+				movement_highlights.append(range_circle)
+				# Highlight other units that can still move
+				for unit in selected_squad:
+					if unit != selected_unit and not unit.has_charged and squad_valid_moves.has(unit):
+						var unit_highlight = create_highlight(Color(0, 1, 0, 0.5))
+						unit_highlight.position = grid.grid_to_world(grid.get_unit_cell_pos(unit))
+						movement_highlights.append(unit_highlight)
+						add_child(unit_highlight)
+				clear_selection()  # Clear selection so another unit can be selected
+				combat_log.add_message("Click another valid position to reposition, or select another unit to move", Color.YELLOW)
 		else:
 			combat_log.add_message("Invalid move position! Must move to a highlighted cell.", Color.RED)
 	# If clicking a unit from our squad that hasn't charged yet
@@ -613,6 +663,12 @@ func handle_charge_click(grid_pos: Vector2i):
 				highlight.position = grid.grid_to_world(move_pos)
 				movement_highlights.append(highlight)
 				add_child(highlight)
+			# Show movement range for this unit
+			var range_circle = RangeIndicator.new(clicked_unit.last_charge_roll * Grid.CELL_SIZE)
+			range_circle.position = grid.grid_to_world(grid.get_unit_cell_pos(clicked_unit))
+			add_child(range_circle)
+			movement_highlights.append(range_circle)
+			combat_log.add_message("Select where to move %s" % clicked_unit.get_unit_type(), Color.YELLOW)
 	# If clicking a unit, handle charge target selection
 	elif clicked_unit is Unit:
 		# If clicking an enemy unit and we have a squad selected
@@ -643,8 +699,16 @@ func handle_charge_click(grid_pos: Vector2i):
 				
 				if charge_roll >= ceil(min_distance):
 					closest_charger.last_charge_roll = charge_roll  # Store the charge roll
+					# Store the charge roll for the entire squad
+					for unit in selected_squad:
+						unit.last_charge_roll = charge_roll
 					combat_log.add_message("Charge successful! %s made it into combat!" % closest_charger.get_unit_type(), Color.GREEN)
 					combat_log.add_message("Move charging unit up to %d cells to get into base contact" % charge_roll)
+					# Store original positions for potential revert
+					squad_original_positions.clear()
+					for unit in selected_squad:
+						squad_original_positions[unit] = grid.get_unit_cell_pos(unit)
+					finish_squad_button.show()
 					# Select the charging unit for movement
 					select_unit(closest_charger)
 					# Mark valid charge move cells
@@ -665,6 +729,11 @@ func handle_charge_click(grid_pos: Vector2i):
 					# Store charge information for move phase
 					charge_target = clicked_unit
 					squad_valid_moves[closest_charger] = valid_charge_cells
+					# Store valid moves for the rest of the squad
+					for unit in selected_squad:
+						if unit != closest_charger and not unit.has_charged:
+							var unit_pos = grid.get_unit_cell_pos(unit)
+							squad_valid_moves[unit] = grid.get_cells_in_range(unit_pos, charge_roll, true)
 					combat_log.add_message("Click a highlighted cell to move the charging unit", Color.YELLOW)
 				else:
 					combat_log.add_message("Charge failed! Roll of %d cells was not enough to reach the target." % charge_roll, Color.RED)
@@ -675,36 +744,6 @@ func handle_charge_click(grid_pos: Vector2i):
 					clear_selection()
 			else:
 				combat_log.add_message("No units in the squad are within %d cells to attempt a charge!" % Unit.CHARGE_RANGE, Color.RED)
-
-func highlight_remaining_charge_moves():
-	clear_highlights()
-	var any_moves = false
-	var charge_distance = 0
-	# Find the charge distance from any unit that has charged
-	for unit in selected_squad:
-		if unit.has_charged:
-			charge_distance = unit.last_charge_roll
-			break
-	
-	for unit in selected_squad:
-		if not unit.has_charged:  # Remove unit.can_charge() check since they're part of charging squad
-			any_moves = true
-			# Get valid moves within charge distance
-			var unit_pos = grid.get_unit_cell_pos(unit)
-			var valid_moves = grid.get_cells_in_range(unit_pos, charge_distance, true)  # true for empty_only
-			squad_valid_moves[unit] = valid_moves
-			
-			# Highlight the unit that can move
-			var highlight = create_highlight(Color(0, 1, 0, 0.5))  # More visible green highlight
-			highlight.position = grid.grid_to_world(grid.get_unit_cell_pos(unit))
-			movement_highlights.append(highlight)
-			add_child(highlight)
-			
-			combat_log.add_message("Click a highlighted unit to select it for movement (up to %d cells)" % charge_distance, Color.YELLOW)
-	
-	if not any_moves:
-		clear_selection()
-		charge_target = null
 
 func handle_fight_click(grid_pos: Vector2i):
 	if not grid.is_within_bounds(grid_pos):

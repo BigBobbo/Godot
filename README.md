@@ -54,6 +54,13 @@ A simplified tactical game based on Warhammer 40K rules, implemented in Godot 4.
 15. Add army list builder
 16. Add save/load game state
 17. add option to advance a squad
+18. Add way to add different weapon profiles
+19. Add terrain and cover saves
+20. Add unit special rules
+21. Add morale phase
+22. Add objective markers
+23. Add victory conditions
+24. Add way to select which model is charging from a squad
 
 ### Polish
 1. Add better unit visuals
