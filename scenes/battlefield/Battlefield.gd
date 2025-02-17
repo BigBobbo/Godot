@@ -514,30 +514,26 @@ func handle_finish_movement():
 			unit.has_moved = true
 
 func handle_finish_charge():
-	# Check if any units are in engagement range with the target
-	var any_in_combat = false
+	# Check coherency for all units in the squad
+	var all_coherent = true
 	for unit in selected_squad:
-		if grid.get_distance(grid.get_unit_cell_pos(unit), grid.get_unit_cell_pos(charge_target)) <= 1:
-			any_in_combat = true
+		if not unit.is_in_coherency(grid, selected_squad):
+			all_coherent = false
 			break
 	
-	if not any_in_combat:
+	if not all_coherent:
 		# Revert all moved units in the squad to their original positions
 		for unit in selected_squad:
 			if squad_original_positions.has(unit):
 				var original_pos = squad_original_positions[unit]
 				var current_pos = grid.get_unit_cell_pos(unit)
 				grid.move_unit(unit, current_pos, original_pos)
-		combat_log.add_message("Charge failed - no models made it into combat!", Color.RED)
-		return
-	
-	# Mark all units in the squad as having charged
-	for unit in selected_squad:
-		unit.has_charged = true
-		if grid.get_distance(grid.get_unit_cell_pos(unit), grid.get_unit_cell_pos(charge_target)) <= 1:
-			unit.is_in_melee = true
-			charge_target.is_in_melee = true
-	combat_log.add_message("Charge complete!", Color.GREEN)
+		combat_log.add_message("Charge movement reverted - models out of coherency!", Color.RED)
+	else:
+		# Mark all units in squad as having charged
+		for unit in selected_squad:
+			unit.has_charged = true
+		combat_log.add_message("Charge movement complete!", Color.GREEN)
 
 func update_squad_list():
 	squad_list.clear()
@@ -702,11 +698,54 @@ func handle_charge_click(grid_pos: Vector2i):
 		# If clicking a friendly unit that can charge
 		if clicked_unit is Unit and clicked_unit.owner_player == game.current_player and squad_valid_moves.has(clicked_unit):
 			select_unit(clicked_unit)
-			# Rest of the unit selection code...
+			# Highlight valid moves for this unit
+			clear_highlights()
+			# Show all moveable units in the squad
+			for unit in selected_squad:
+				if not unit.has_charged:
+					var highlight_color = Color(0, 1, 0, 0.5)  # Default green for moveable units
+					if unit == clicked_unit:
+						highlight_color = Color(1, 1, 0, 0.5)  # Yellow for selected unit
+					var unit_highlight = create_highlight(highlight_color)
+					unit_highlight.position = grid.grid_to_world(grid.get_unit_cell_pos(unit))
+					movement_highlights.append(unit_highlight)
+					add_child(unit_highlight)
+			
+			# Show valid moves for selected unit
+			var valid_moves = squad_valid_moves[clicked_unit]
+			for move_pos in valid_moves:
+				var highlight = create_highlight(Color(0, 0.5, 0, 0.2))
+				highlight.position = grid.grid_to_world(move_pos)
+				movement_highlights.append(highlight)
+				add_child(highlight)
+			
+			# Show movement range for this unit
+			var range_circle = RangeIndicator.new(clicked_unit.last_charge_roll * Grid.CELL_SIZE)
+			range_circle.position = grid.grid_to_world(grid.get_unit_cell_pos(clicked_unit))
+			add_child(range_circle)
+			movement_highlights.append(range_circle)
+			
+			combat_log.add_message("Move %s up to %d cells" % [clicked_unit.get_unit_type(), clicked_unit.last_charge_roll], Color.YELLOW)
+			update_coherency_highlights()
+
 		# If clicking a valid move position for the selected unit
 		elif selected_unit and squad_valid_moves.has(selected_unit):
 			var valid_moves = squad_valid_moves[selected_unit]
-			# Rest of the move handling code...
+			if grid_pos in valid_moves:
+				var from_pos = grid.get_unit_cell_pos(selected_unit)
+				if grid.move_unit(selected_unit, from_pos, grid_pos):
+					combat_log.add_message("%s moved" % selected_unit.get_unit_type())
+					clear_selection()
+					# Show remaining moveable units
+					for unit in selected_squad:
+						if not unit.has_charged:
+							var highlight = create_highlight(Color(0, 1, 0, 0.5))
+							highlight.position = grid.grid_to_world(grid.get_unit_cell_pos(unit))
+							movement_highlights.append(highlight)
+							add_child(highlight)
+					update_coherency_highlights()
+			else:
+				combat_log.add_message("Invalid move position! Must move to a highlighted cell.", Color.RED)
 
 func handle_fight_click(grid_pos: Vector2i):
 	if not grid.is_within_bounds(grid_pos):
