@@ -482,14 +482,20 @@ func _on_finish_squad_pressed():
 	match game.current_phase:
 		GameEnums.GamePhase.MOVEMENT:
 			handle_finish_movement()
+			# Clear selection after movement
+			selected_squad = []
+			squad_original_positions.clear()
+			squad_valid_moves.clear()
+			clear_selection()
+			finish_squad_button.hide()
 		GameEnums.GamePhase.CHARGE:
-			handle_finish_charge()
-	
-	selected_squad = []
-	squad_original_positions.clear()
-	squad_valid_moves.clear()
-	clear_selection()
-	finish_squad_button.hide()
+			# Don't clear selection if charge requirements aren't met
+			if handle_finish_charge():
+				selected_squad = []
+				squad_original_positions.clear()
+				squad_valid_moves.clear()
+				clear_selection()
+				finish_squad_button.hide()
 
 func handle_finish_movement():
 	# Check coherency for all units in the squad
@@ -523,17 +529,47 @@ func handle_finish_charge():
 		if grid.get_distance(grid.get_unit_cell_pos(unit), grid.get_unit_cell_pos(charge_target)) <= 1:
 			any_in_combat = true
 	
+	# Show warnings if requirements aren't met
 	if not all_coherent or not any_in_combat:
-		# Revert all moved units in the squad to their original positions
-		for unit in selected_squad:
-			if squad_original_positions.has(unit):
-				var original_pos = squad_original_positions[unit]
-				var current_pos = grid.get_unit_cell_pos(unit)
-				grid.move_unit(unit, current_pos, original_pos)
 		if not all_coherent:
-			combat_log.add_message("Charge movement reverted - models out of coherency!", Color.RED)
-		else:
-			combat_log.add_message("Charge failed - no models made it into combat!", Color.RED)
+			combat_log.add_message("Cannot complete charge - models out of coherency!", Color.RED)
+		if not any_in_combat:
+			combat_log.add_message("Cannot complete charge - no models in combat!", Color.RED)
+		combat_log.add_message("Reposition models and try again", Color.YELLOW)
+		# Refresh the movement highlights and keep selection active
+		clear_highlights()
+		# Keep the first unit selected
+		if not selected_squad.is_empty():
+			select_unit(selected_squad[0])
+		
+		# Show all moveable units in the squad
+		for unit in selected_squad:
+			if not unit.has_charged:
+				var highlight_color = Color(0, 1, 0, 0.5)  # Default green for moveable units
+				if unit == selected_unit:
+					highlight_color = Color(1, 1, 0, 0.5)  # Yellow for selected unit
+				var unit_highlight = create_highlight(highlight_color)
+				unit_highlight.position = grid.grid_to_world(grid.get_unit_cell_pos(unit))
+				movement_highlights.append(unit_highlight)
+				add_child(unit_highlight)
+				
+				# Show valid moves for selected unit
+				if unit == selected_unit:
+					var valid_moves = squad_valid_moves[unit]
+					for move_pos in valid_moves:
+						var move_highlight = create_highlight(Color(0, 0.5, 0, 0.2))
+						move_highlight.position = grid.grid_to_world(move_pos)
+						movement_highlights.append(move_highlight)
+						add_child(move_highlight)
+					
+					# Show movement range for this unit
+					var range_circle = RangeIndicator.new(unit.last_charge_roll * Grid.CELL_SIZE)
+					range_circle.position = grid.grid_to_world(grid.get_unit_cell_pos(unit))
+					add_child(range_circle)
+					movement_highlights.append(range_circle)
+		update_coherency_highlights()
+		finish_squad_button.show()
+		return false  # Charge not completed
 	else:
 		# Mark all units in squad as having charged
 		for unit in selected_squad:
@@ -542,6 +578,11 @@ func handle_finish_charge():
 				unit.is_in_melee = true
 				charge_target.is_in_melee = true
 		combat_log.add_message("Charge movement complete!", Color.GREEN)
+		# Clear charge state
+		clear_selection()
+		charge_target = null
+		finish_squad_button.hide()
+		return true  # Charge completed successfully
 
 func update_squad_list():
 	squad_list.clear()
