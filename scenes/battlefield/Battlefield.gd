@@ -516,23 +516,31 @@ func handle_finish_movement():
 func handle_finish_charge():
 	# Check coherency for all units in the squad
 	var all_coherent = true
+	var any_in_combat = false
 	for unit in selected_squad:
 		if not unit.is_in_coherency(grid, selected_squad):
 			all_coherent = false
-			break
+		if grid.get_distance(grid.get_unit_cell_pos(unit), grid.get_unit_cell_pos(charge_target)) <= 1:
+			any_in_combat = true
 	
-	if not all_coherent:
+	if not all_coherent or not any_in_combat:
 		# Revert all moved units in the squad to their original positions
 		for unit in selected_squad:
 			if squad_original_positions.has(unit):
 				var original_pos = squad_original_positions[unit]
 				var current_pos = grid.get_unit_cell_pos(unit)
 				grid.move_unit(unit, current_pos, original_pos)
-		combat_log.add_message("Charge movement reverted - models out of coherency!", Color.RED)
+		if not all_coherent:
+			combat_log.add_message("Charge movement reverted - models out of coherency!", Color.RED)
+		else:
+			combat_log.add_message("Charge failed - no models made it into combat!", Color.RED)
 	else:
 		# Mark all units in squad as having charged
 		for unit in selected_squad:
 			unit.has_charged = true
+			if grid.get_distance(grid.get_unit_cell_pos(unit), grid.get_unit_cell_pos(charge_target)) <= 1:
+				unit.is_in_melee = true
+				charge_target.is_in_melee = true
 		combat_log.add_message("Charge movement complete!", Color.GREEN)
 
 func update_squad_list():
@@ -672,11 +680,7 @@ func handle_charge_click(grid_pos: Vector2i):
 						add_child(unit_highlight)
 						
 						# Store valid moves for this unit
-						var valid_moves = []
-						var charge_cells = grid.get_cells_in_range(grid.get_unit_cell_pos(unit), charge_roll, true)
-						for cell in charge_cells:
-							if grid.get_distance(cell, target_pos) <= 1:  # Engagement range
-								valid_moves.append(cell)
+						var valid_moves = grid.get_cells_in_range(grid.get_unit_cell_pos(unit), charge_roll, true)
 						squad_valid_moves[unit] = valid_moves
 				
 				# Store charge information
