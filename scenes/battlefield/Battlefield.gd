@@ -482,12 +482,6 @@ func _on_finish_squad_pressed():
 	match game.current_phase:
 		GameEnums.GamePhase.MOVEMENT:
 			handle_finish_movement()
-			# Clear selection after movement
-			selected_squad = []
-			squad_original_positions.clear()
-			squad_valid_moves.clear()
-			clear_selection()
-			finish_squad_button.hide()
 		GameEnums.GamePhase.CHARGE:
 			# Don't clear selection if charge requirements aren't met
 			if handle_finish_charge():
@@ -512,12 +506,27 @@ func handle_finish_movement():
 				var original_pos = squad_original_positions[unit]
 				var current_pos = grid.get_unit_cell_pos(unit)
 				grid.move_unit(unit, current_pos, original_pos)
-				unit.has_moved = false
-		combat_log.add_message("Squad movement reverted - models out of coherency!", Color.RED)
+		# Keep the squad selected and show valid moves again
+		clear_highlights()
+		for unit in selected_squad:
+			if unit.can_move():
+				var highlight = create_highlight(Color(0, 1, 0, 0.5))
+				highlight.position = grid.grid_to_world(grid.get_unit_cell_pos(unit))
+				movement_highlights.append(highlight)
+				add_child(highlight)
+		combat_log.add_message("Reposition models and try again", Color.YELLOW)
+		finish_squad_button.show()
+		return
 	else:
 		# Mark all units in squad as moved only after confirming movement
 		for unit in selected_squad:
 			unit.has_moved = true
+		# Clear selection after successful movement
+		selected_squad = []
+		squad_original_positions.clear()
+		squad_valid_moves.clear()
+		clear_selection()
+		finish_squad_button.hide()
 
 func handle_finish_charge():
 	# Check coherency for all units in the squad
