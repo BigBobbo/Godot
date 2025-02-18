@@ -72,7 +72,7 @@ func create_ork_army() -> Array:
 	#print("Added warboss squad")
 	
 	# Create two squads of Ork Boyz
-	for i in range(1):
+	for i in range(2):
 		var boy_squad = []
 		var new_squad_id = get_next_squad_id()
 		var boy_scene = load("res://scenes/units/OrkBoy.tscn")
