@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://dksw13fwkhjkv"]
+[gd_scene load_steps=5 format=3 uid="uid://dksw13fwkhjkv"]
 
 [ext_resource type="Script" path="res://scenes/game/Game.gd" id="1_xxxxx"]
 [ext_resource type="PackedScene" path="res://scenes/battlefield/Battlefield.tscn" id="2_xxxxx"]
-[ext_resource type="PackedScene" path="res://scenes/ui/GameUI.tscn" id="3_xxxxx"]
+[ext_resource type="PackedScene" uid="uid://bow7afwyt1ij4" path="res://scenes/ui/GameUI.tscn" id="3_xxxxx"]
+[ext_resource type="PackedScene" path="res://scenes/ui/SaveLoadPanel.tscn" id="4_xxxxx"]
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1_xxxxx")
@@ -11,3 +12,8 @@ script = ExtResource("1_xxxxx")
 position = Vector2(100, 100)
 
 [node name="GameUI" parent="." instance=ExtResource("3_xxxxx")]
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="SaveLoadPanel" parent="CanvasLayer" instance=ExtResource("4_xxxxx")]
+anchors_preset = 8

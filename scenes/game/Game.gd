@@ -1,5 +1,7 @@
 extends Node2D
 
+const SaveGame = preload("res://scripts/SaveGame.gd")
+
 var current_phase: GameEnums.GamePhase = GameEnums.GamePhase.DEPLOYMENT
 var current_player: GameEnums.PlayerTurn = GameEnums.PlayerTurn.PLAYER_1
 var deployment_units_remaining = {
@@ -8,6 +10,7 @@ var deployment_units_remaining = {
 }
 var battlefield: Node2D
 @onready var ui = $GameUI
+@onready var save_load_panel = $SaveLoadPanel
 var setup_complete = false
 var active_squads = {
 	GameEnums.PlayerTurn.PLAYER_1: [],  # Array of arrays (squads)
@@ -20,6 +23,9 @@ func _ready():
 	battlefield = $Battlefield
 	setup_game()
 	setup_complete = true
+	await get_tree().process_frame
+	$CanvasLayer/SaveLoadPanel.save_game.connect(_on_save_game)
+	$CanvasLayer/SaveLoadPanel.load_game.connect(_on_load_game)
 
 func setup_game():
 	print("Setting up game...")
@@ -242,3 +248,96 @@ func _on_squad_deployment_finished(squad_id: int):
 	
 	switch_player()
 	battlefield.update_deployment_preview()
+
+func _on_save_game(slot_name: String):
+	var save_game = SaveGame.new()
+	save_game.current_phase = current_phase
+	save_game.current_player = current_player
+	
+	# Save unit positions and states
+	save_game.units = []
+	for pos in battlefield.grid.cells:
+		var unit = battlefield.grid.cells[pos]
+		if unit is Unit:
+			save_game.units.append({
+				"type": unit.get_unit_type(),
+				"position": pos,
+				"owner": unit.owner_player,
+				"squad_id": unit.squad_id,
+				"current_wounds": unit.current_wounds,
+				"has_moved": unit.has_moved,
+				"has_shot": unit.has_shot,
+				"has_charged": unit.has_charged,
+				"has_fought": unit.has_fought,
+				"is_in_melee": unit.is_in_melee
+			})
+	
+	# Save squad information
+	save_game.active_squads = {
+		GameEnums.PlayerTurn.PLAYER_1: [],
+		GameEnums.PlayerTurn.PLAYER_2: []
+	}
+	for player in active_squads:
+		for squad in active_squads[player]:
+			var squad_data = []
+			for unit in squad:
+				squad_data.append(unit.squad_id)
+			save_game.active_squads[player].append(squad_data)
+	
+	# Save to file
+	var save_path = "user://saves/" + slot_name + ".save"
+	var file = FileAccess.open(save_path, FileAccess.WRITE)
+	file.store_var(save_game.serialize())
+
+func _on_load_game(slot_name: String):
+	var save_path = "user://saves/" + slot_name + ".save"
+	var file = FileAccess.open(save_path, FileAccess.READ)
+	if not file:
+		return
+	
+	var save_data = file.get_var()
+	var save_game = SaveGame.new()
+	save_game.deserialize(save_data)
+	
+	# Clear current game state
+	battlefield.clear_all()
+	active_squads = {
+		GameEnums.PlayerTurn.PLAYER_1: [],
+		GameEnums.PlayerTurn.PLAYER_2: []
+	}
+	
+	# Load phase and player
+	current_phase = save_game.current_phase
+	current_player = save_game.current_player
+	
+	# Load units
+	for unit_data in save_game.units:
+		var unit_scene = load("res://scenes/units/" + unit_data.type.replace(" ", "") + ".tscn")
+		if unit_scene:
+			var unit = unit_scene.instantiate()
+			unit.owner_player = unit_data.owner
+			unit.squad_id = unit_data.squad_id
+			unit.current_wounds = unit_data.current_wounds
+			unit.has_moved = unit_data.has_moved
+			unit.has_shot = unit_data.has_shot
+			unit.has_charged = unit_data.has_charged
+			unit.has_fought = unit_data.has_fought
+			unit.is_in_melee = unit_data.is_in_melee
+			battlefield.add_child(unit)
+			battlefield.grid.place_unit(unit, unit_data.position)
+	
+	# Reconstruct squads
+	for player in save_game.active_squads:
+		for squad_data in save_game.active_squads[player]:
+			var squad = []
+			for unit_id in squad_data:
+				for pos in battlefield.grid.cells:
+					var unit = battlefield.grid.cells[pos]
+					if unit is Unit and unit.squad_id == unit_id:
+						squad.append(unit)
+			if not squad.is_empty():
+				active_squads[player].append(squad)
+	
+	# Update UI
+	ui.update_labels()
+	battlefield.update_squad_list()

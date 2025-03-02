@@ -670,6 +670,35 @@ func _on_squad_deployment_finished(squad_id: int):
 	# Forward the signal to the game
 	game._on_squad_deployment_finished(squad_id)
 
+func clear_all():
+	# Clear all units from the grid
+	var positions_to_clear = []
+	for pos in grid.cells:
+		var unit = grid.cells[pos]
+		if unit is Unit:
+			positions_to_clear.append(pos)
+			unit.queue_free()
+	
+	for pos in positions_to_clear:
+		grid.cells.erase(pos)
+	
+	# Clear all selections and highlights
+	selected_unit = null
+	selected_squad = []
+	squad_original_positions.clear()
+	squad_valid_moves.clear()
+	clear_highlights()
+	
+	# Clear deployment state
+	if deployment_preview:
+		deployment_preview.queue_free()
+		deployment_preview = null
+	
+	# Hide UI elements
+	finish_squad_button.hide()
+	deployment_panel.hide()
+	squad_panel.hide()
+
 func handle_charge_click(grid_pos: Vector2i):
 	if not grid.is_within_bounds(grid_pos):
 		return
