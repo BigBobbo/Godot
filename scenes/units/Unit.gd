@@ -117,9 +117,14 @@ func take_damage(amount: int):
 		is_destroyed = true
 		# Visual feedback for destroyed unit
 		modulate = Color(0.5, 0.5, 0.5, 0.5)  # Gray out the unit
-		# Add a destroyed indicator
-		unit_label.text = unit_label.text + " (Destroyed)"
-	health_bar.value = current_wounds
+		
+		# Add a destroyed indicator - check if unit_label exists first
+		if unit_label != null:
+			unit_label.text = unit_label.text + " (Destroyed)"
+	
+	# Check if health_bar exists before updating it
+	if health_bar != null:
+		health_bar.value = current_wounds
 
 func can_be_targeted() -> bool:
 	return not is_destroyed

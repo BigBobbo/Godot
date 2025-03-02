@@ -17,12 +17,17 @@ config/features=PackedStringArray("4.3")
 [autoload]
 
 GameEnums="*res://autoload/GameEnums.gd"
+SaveSystem="*res://autoload/SaveSystem.gd"
 
 [display]
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gut/plugin.cfg")
 
 [input]
 

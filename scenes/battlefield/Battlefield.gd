@@ -126,9 +126,10 @@ func handle_deployment_click(grid_pos: Vector2i):
 		deployment_panel.remove_unit(unit_to_deploy)  # Remove the deployed unit from the panel
 		update_deployment_preview()  # Update preview for next unit
 
-func is_in_deployment_zone(grid_pos: Vector2i, player: int) -> bool:
+func is_in_deployment_zone(pos: Vector2i, player: int) -> bool:
 	var zone = deployment_zones[player]
-	return zone.has_point(grid_pos)
+	return pos.x >= zone.position.x and pos.x < zone.position.x + zone.size.x and \
+		   pos.y >= zone.position.y and pos.y < zone.position.y + zone.size.y
 
 func highlight_valid_moves(unit: Unit):
 	clear_highlights()
